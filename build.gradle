@@ -1,0 +1,61 @@
+plugins {
+    id 'application'
+    id 'java'
+    id "com.github.johnrengelman.shadow" version "4.0.4"
+}
+
+group 'com.jcs'
+version '1.0-SNAPSHOT'
+
+application {
+    mainClassName = 'com.jcs.overlay.App'
+}
+
+sourceCompatibility = 1.8
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    flatDir {
+        dirs 'libs'
+    }
+    mavenLocal()
+    mavenCentral()
+    jcenter()
+    google()
+    maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
+    maven { url "https://oss.sonatype.org/content/repositories/releases/" }
+}
+
+project.ext.lwjglVersion = "3.2.2"
+project.ext.lwjglNatives = "natives-windows"
+
+dependencies {
+    implementation group: 'org.java-websocket', name: 'Java-WebSocket', version: '1.4.0'
+    implementation group: 'net.java.dev.jna', name: 'jna-platform', version: '5.3.1'
+
+    // Orianna
+    implementation group: 'com.merakianalytics.orianna', name: 'orianna', version: '3.0.4'
+
+    // Moshi
+    implementation group: 'com.squareup.moshi', name: 'moshi', version: '1.8.0'
+
+    // CEF (some from JAR)
+    implementation name: "jcef"
+    implementation name: "jogl-all"
+    implementation name: "gluegen-rt"
+    implementation name: "gluegen-rt-natives-windows-amd64"
+    implementation name: "jogl-all-natives-windows-amd64"
+
+    // SLF4J
+    implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.8.0-beta4'
+    implementation group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.8.0-beta4'
+
+    // Other
+    compileOnly group: 'org.jetbrains', name: 'annotations', version: '+'
+    compileOnly group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
+    testImplementation group: 'junit', name: 'junit', version: '4.12'
+    testImplementation "org.junit.jupiter:junit-jupiter-api:5.5.+"
+}
