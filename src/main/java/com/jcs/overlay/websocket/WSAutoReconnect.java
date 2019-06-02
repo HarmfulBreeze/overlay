@@ -26,21 +26,21 @@ public class WSAutoReconnect implements Runnable {
                 Thread.sleep(500);
                 client = app.getWsClient();
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                this.logger.error("Exception caught: ", e);
             }
         }
 
         int stopCount = 1;
-        while (!shouldStop && stopCount <= 10) {
+        while (!this.shouldStop && stopCount <= 10) {
             try {
                 if (!client.isOpen()) {
-                    logger.info("Reconnexion en cours... (essai " + stopCount + "/10)");
+                    this.logger.info("Trying to reconnect... (" + stopCount + "/10)");
                     client.reconnectBlocking();
                     if (client.isOpen()) {
                         stopCount = 1;
                     } else {
                         App.getApp().getLockfileMonitor().setLeagueStarted(false);
-                        logger.error("Echec de la connexion, nouvel essai dans 5 secondes...");
+                        this.logger.error("Could not connect, next retry in 5 seconds...");
                         stopCount++;
                         Thread.sleep(200);
                     }
@@ -48,12 +48,12 @@ public class WSAutoReconnect implements Runnable {
                     Thread.sleep(1000);
                 }
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                this.logger.error("Exception caught: ", e);
                 Thread.currentThread().interrupt();
             }
         }
         if (stopCount == 11) {
-            logger.error("La connexion a été perdue, arrêt de la reconnexion.");
+            this.logger.error("Connection lost, we will not try to reconnect anymore.");
         }
     }
 }

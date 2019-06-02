@@ -4,39 +4,39 @@ import java.util.List;
 
 public class Session {
     public List<List<Action>> getActions() {
-        return actions;
+        return this.actions;
     }
 
     public BannedChampions getBans() {
-        return bans;
+        return this.bans;
     }
 
     public long getCounter() {
-        return counter;
+        return this.counter;
     }
 
     public boolean isSpectating() {
-        return isSpectating;
+        return this.isSpectating;
     }
 
     public long getLocalPlayerCellId() {
-        return localPlayerCellId;
+        return this.localPlayerCellId;
     }
 
     public List<PlayerSelection> getMyTeam() {
-        return myTeam;
+        return this.myTeam;
     }
 
     public List<PlayerSelection> getTheirTeam() {
-        return theirTeam;
+        return this.theirTeam;
     }
 
     public Timer getTimer() {
-        return timer;
+        return this.timer;
     }
 
     public List<TradeContract> getTrades() {
-        return trades;
+        return this.trades;
     }
 
     List<List<Action>> actions;

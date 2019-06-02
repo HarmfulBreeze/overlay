@@ -35,6 +35,7 @@ project.ext.lwjglNatives = "natives-windows"
 dependencies {
     implementation group: 'org.java-websocket', name: 'Java-WebSocket', version: '1.4.0'
     implementation group: 'net.java.dev.jna', name: 'jna-platform', version: '5.3.1'
+    implementation 'org.apache.commons:commons-lang3:3.9'
 
     // Orianna
     implementation group: 'com.merakianalytics.orianna', name: 'orianna', version: '3.0.4'
@@ -42,7 +43,7 @@ dependencies {
     // Moshi
     implementation group: 'com.squareup.moshi', name: 'moshi', version: '1.8.0'
 
-    // CEF (some from JAR)
+    // CEF (from JAR)
     implementation name: "jcef"
     implementation name: "jogl-all"
     implementation name: "gluegen-rt"

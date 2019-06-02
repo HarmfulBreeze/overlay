@@ -17,11 +17,11 @@ public class Player {
     }
 
     public PlayerSelection getPlayerSelection() {
-        return playerSelection;
+        return this.playerSelection;
     }
 
     public String getSummonerName() {
-        return summonerName;
+        return this.summonerName;
     }
 
     public void setSummonerName(String summonerName) {

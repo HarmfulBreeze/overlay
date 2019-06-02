@@ -47,7 +47,7 @@ public class MainFrame extends JFrame {
         });
         CefSettings settings = new CefSettings();
         settings.windowless_rendering_enabled = useOSR;
-        cefApp_ = CefApp.getInstance(settings);
+        this.cefApp_ = CefApp.getInstance(settings);
 
         // (2) JCEF can handle one to many browser instances simultaneous. These
         //     browser instances are logically grouped together by an instance of
@@ -63,7 +63,7 @@ public class MainFrame extends JFrame {
         //     events. By assigning handlers to CefClient you can control the
         //     behavior of the browser. See tests.detailed.MainFrame for an example
         //     of how to use these handlers.
-        client_ = cefApp_.createClient();
+        this.client_ = this.cefApp_.createClient();
 
         // (3) One CefBrowser instance is responsible to control what you'll see on
         //     the UI component of the instance. It can be displayed off-screen
@@ -77,44 +77,44 @@ public class MainFrame extends JFrame {
         //     by calling the method "getUIComponent()" on the instance of CefBrowser.
         //     The UI component is inherited from a java.awt.Component and therefore
         //     it can be embedded into any AWT UI.
-        browser_ = client_.createBrowser(startURL, useOSR, isTransparent);
-        browserUI_ = browser_.getUIComponent();
+        this.browser_ = this.client_.createBrowser(startURL, useOSR, isTransparent);
+        this.browserUI_ = this.browser_.getUIComponent();
 
-        client_.addKeyboardHandler(new KeyboardHandler());
+        this.client_.addKeyboardHandler(new KeyboardHandler());
 
         // Clear focus from the address field when the browser gains focus.
-        client_.addFocusHandler(new CefFocusHandlerAdapter() {
+        this.client_.addFocusHandler(new CefFocusHandlerAdapter() {
             @Override
             public void onGotFocus(CefBrowser browser) {
-                if (browserFocus_) return;
-                browserFocus_ = true;
+                if (MainFrame.this.browserFocus_) return;
+                MainFrame.this.browserFocus_ = true;
                 KeyboardFocusManager.getCurrentKeyboardFocusManager().clearGlobalFocusOwner();
                 browser.setFocus(true);
             }
 
             @Override
             public void onTakeFocus(CefBrowser browser, boolean next) {
-                browserFocus_ = false;
+                MainFrame.this.browserFocus_ = false;
             }
         });
 
         // (5) All UI components are assigned to the default content pane of this
         //     JFrame and afterwards the frame is made visible to the user.
 //        getContentPane().add(address_, BorderLayout.NORTH);
-        getContentPane().add(browserUI_, BorderLayout.CENTER);
-        pack();
-        setSize(1600, 900);
-        setResizable(false);
-        setVisible(true);
+        this.getContentPane().add(this.browserUI_, BorderLayout.CENTER);
+        this.pack();
+        this.setSize(1600, 900);
+        this.setResizable(false);
+        this.setVisible(true);
 
         // (6) To take care of shutting down CEF accordingly, it's important to call
         //     the method "dispose()" of the CefApp instance if the Java
         //     application will be closed. Otherwise you'll get asserts from CEF.
-        addWindowListener(new WindowAdapter() {
+        this.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 CefApp.getInstance().dispose();
-                dispose();
+                MainFrame.this.dispose();
             }
         });
     }

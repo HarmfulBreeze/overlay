@@ -11,6 +11,10 @@ public class CefManager {
             System.out.println("Startup initialization failed!");
             return;
         }
-        mainFrame = new MainFrame("file:///C:/Users/piorr/WebstormProjects/overlay/build/index.html", false, false);
+        this.mainFrame = new MainFrame("file:///C:/Users/piorr/WebstormProjects/overlay/build/index.html", false, false);
+    }
+
+    public MainFrame getMainFrame() {
+        return this.mainFrame;
     }
 }

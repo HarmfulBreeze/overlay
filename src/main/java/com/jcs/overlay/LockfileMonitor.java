@@ -27,25 +27,25 @@ public class LockfileMonitor implements Runnable {
             leagueFolderPath = Utils.getLeagueDirectory().toPath();
             leagueFolderPath.register(watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
         } catch (IOException e) {
-            e.printStackTrace();
+            this.logger.error("Exception caught: ", e);
             return;
         }
 
         Path lockfilePath = leagueFolderPath.resolve("lockfile");
 
-        logger.info("Bienvenue ! En attente de connexion au jeu...");
+        this.logger.info("Bienvenue ! En attente de connexion au jeu...");
 
         // On vérifie si le jeu est déjà démarré, si oui, se connecter directement
         if (lockfilePath.toFile().exists() && !Utils.readLockFile().isEmpty()) {
             String lockfileContent = Utils.readLockFile();
             if (!lockfileContent.isEmpty()) {
-                leagueStarted = true;
+                this.leagueStarted = true;
                 App.getApp().onLeagueStart(lockfileContent);
             } else {
-                leagueStarted = false;
+                this.leagueStarted = false;
             }
         } else {
-            leagueStarted = false;
+            this.leagueStarted = false;
         }
 
         WatchKey key;
@@ -55,25 +55,25 @@ public class LockfileMonitor implements Runnable {
                 for (WatchEvent<?> event : key.pollEvents()) {
                     // Lockfile modifié -> League mal fermé, on redémarre, ou League qui s'ouvre pour la 1ere fois
                     if (event.kind() == ENTRY_MODIFY && ((Path) event.context()).endsWith("lockfile")) {
-                        if (leagueStarted) {
+                        if (this.leagueStarted) {
                             continue;
                         }
                         App.getApp().onLeagueStop();
                         lockfileContent = Utils.readLockFile();
                         App.getApp().onLeagueStart(lockfileContent);
-                        setLeagueStarted(true);
+                        this.setLeagueStarted(true);
                     }
 
                     // Si le lockfile est supprimé, on en déduit que le client est fermé
                     else if (event.kind() == ENTRY_DELETE && ((Path) event.context()).endsWith("lockfile")) {
-                        setLeagueStarted(false);
+                        this.setLeagueStarted(false);
                         App.getApp().onLeagueStop();
                     }
                 }
                 key.reset();
             }
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            this.logger.error("Exception caught: ", e);
             Thread.currentThread().interrupt();
         }
     }

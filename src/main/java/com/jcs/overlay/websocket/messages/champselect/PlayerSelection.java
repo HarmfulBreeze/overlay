@@ -15,26 +15,26 @@ public class PlayerSelection {
     String entitledFeatureType;
 
     public long getCellId() {
-        return cellId;
+        return this.cellId;
     }
 
     public int getChampionId() {
-        return championId;
+        return this.championId;
     }
 
     public Long getSpell1Id() {
-        return spell1Id;
+        return this.spell1Id;
     }
 
     public Long getSpell2Id() {
-        return spell2Id;
+        return this.spell2Id;
     }
 
     public int getTeam() {
-        return team;
+        return this.team;
     }
 
     public Long getSummonerId() {
-        return summonerId;
+        return this.summonerId;
     }
 }

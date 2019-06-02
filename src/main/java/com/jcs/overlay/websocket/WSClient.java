@@ -7,11 +7,13 @@ import com.jcs.overlay.websocket.messages.champselect.SessionMessage;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.framing.CloseFrame;
 import org.java_websocket.handshake.ServerHandshake;
 import org.java_websocket.server.WebSocketServer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +33,9 @@ public class WSClient extends WebSocketClient {
     private final WebSocketServer wsServer = App.getApp().getWsServer();
 
     private final List<Player> playerList = new ArrayList<>();
+    private String callId = null;
 
+    // Accept self-signed certificate. (if anyone has a better solution, please PR)
     public WSClient(URI uri, Map<String, String> httpHeaders) {
         super(uri, httpHeaders);
         TrustManager[] trustAllCerts = new TrustManager[]{
@@ -39,9 +43,11 @@ public class WSClient extends WebSocketClient {
                     public java.security.cert.X509Certificate[] getAcceptedIssuers() {
                         return null;
                     }
+
                     public void checkClientTrusted(
                             java.security.cert.X509Certificate[] certs, String authType) {
                     }
+
                     public void checkServerTrusted(
                             java.security.cert.X509Certificate[] certs, String authType) {
                     }
@@ -51,7 +57,7 @@ public class WSClient extends WebSocketClient {
         try {
             sslContext = SSLContext.getInstance("TLS");
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
+            this.logger.error("Exception caught: ", e);
             Thread.currentThread().interrupt();
             return;
         }
@@ -59,7 +65,7 @@ public class WSClient extends WebSocketClient {
         try {
             sslContext.init(null, trustAllCerts, null);
         } catch (KeyManagementException e) {
-            e.printStackTrace();
+            this.logger.error("Exception caught: ", e);
         }
         SSLSocketFactory factory = sslContext.getSocketFactory();
 
@@ -68,34 +74,63 @@ public class WSClient extends WebSocketClient {
 
     @Override
     public void onOpen(ServerHandshake handshakedata) {
-        this.send("[5,\"OnJsonApiEvent_lol-champ-select_v1_session\"]");
+        this.send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
+//        this.send("[5, \"OnJsonApiEvent\"]");
 //        this.send("[2, \"12345\", \"/lol-summoner/v2/summoner-names\", [33968983, 33968984]]");
-        logger.info("Connecté au client !");
+        this.logger.info("Connected to the client!");
     }
 
     @Override
-    public void onMessage(String message) {
-        if (message.isEmpty() || !message.contains("OnJsonApiEvent_lol-champ-select_v1_session")) {
+    public void onMessage(@NotNull String message) {
+        if (message.isEmpty()) {
             return;
         }
 
-        if (true) {
-            logger.info(message);
+        if (message.startsWith("[3, \"" + this.callId + "\"")) {
+            this.handleSummonerNamesUpdate(message);
+        } else if (message.startsWith("[8, \"OnJsonApiEvent_lol-champ-select_v1_session\"")) {
+            this.handleChampSelectMessage(message);
+        } else {
+            this.logger.warn("Unknown message received: " + message);
+        }
+    }
+
+    @Override
+    public void onClose(int code, String reason, boolean remote) {
+        if (code != CloseFrame.NEVER_CONNECTED) {
+            if (code == CloseFrame.ABNORMAL_CLOSE) {
+                this.logger.info("Disconnected from client.");
+            } else {
+                this.logger.error(String.format("Connection closed, code %d\nReason: %s\nInitiated by remote: %b\n", code, reason, remote));
+            }
+        }
+    }
+
+    @Override
+    public void onError(Exception ex) {
+        if (ex instanceof ConnectException) {
+            this.logger.error("Connection error: " + ex.getMessage());
+        } else {
+            this.logger.error("Exception caught: ", ex);
+        }
+    }
+
+    private void handleSummonerNamesUpdate(String message) {
+        String json = this.getDataFromWampMessage(message);
+        if (json == null) {
             return;
         }
 
-        if (message.startsWith("[3,")) {
-            //réponse à notre call pour récupérer les noms des joueurs
-        }
+        this.logger.info("Summoner Names Update message received: " + message);
+    }
 
-        Pattern pattern = Pattern.compile("(\\{.*})");
-        Matcher matcher = pattern.matcher(message);
-        if (!matcher.find()) { // Si le message ne comporte pas d'objet JSON, on return
+    private void handleChampSelectMessage(String message) {
+        String json = this.getDataFromWampMessage(message);
+        if (json == null) {
             return;
         }
 
-        String json = matcher.group();
-        logger.info(json);
+        this.logger.info(json);
         Moshi moshi = new Moshi.Builder().build();
 
         JsonAdapter<SessionMessage> jsonAdapter = moshi.adapter(SessionMessage.class);
@@ -104,36 +139,56 @@ public class WSClient extends WebSocketClient {
         try {
             jsonMessage = jsonAdapter.fromJson(json);
             if (jsonMessage == null) {
-                throw new JsonDataException("jsonMessage est null !");
+                throw new JsonDataException("jsonMessage is null!");
             }
         } catch (IOException e) {
-            logger.error(e.getMessage(), e);
+            this.logger.error(e.getMessage(), e);
             return;
         }
 
         switch (jsonMessage.getEventType()) {
             case Create:
-                logger.info("La sélection des champions a commencé !");
+                this.logger.info("Champion select has started!");
                 break;
             case Update:
-                logger.info("Mise à jour reçue !");
+                this.logger.info("Received an update!");
                 break;
             case Delete:
-                logger.info("La sélection des champions s'est terminée.");
-                // Envoyer la requête pour terminer la champ select.
+                this.logger.info("Champion select has ended.");
+                // Send the request to the web component asking to close champion select.
                 break;
         }
 
-        sendUpdateNamesRequest(jsonMessage);
+        // If don't already have names, we request them.
+        if (this.callId == null) {
+            this.sendUpdateNamesRequest(jsonMessage);
+        }
+    }
+
+    /**
+     * @param message The WAMP message received.
+     * @return If there is a json object, it gets returned. Else, the method returns null.
+     */
+    @Nullable
+    private String getDataFromWampMessage(String message) {
+        Pattern pattern = Pattern.compile("(\\{.*})");
+        Matcher matcher = pattern.matcher(message);
+        if (!matcher.find()) { // If the message has no json object, return null.
+            return null;
+        }
+
+        return matcher.group();
     }
 
     /**
      * Sends the WebSocket query message to retrieve all teams from the provided SessionMessage.
+     *
      * @param message SessionMessage object containing the teams to retrieve the names of.
      */
     private void sendUpdateNamesRequest(@NotNull SessionMessage message) {
         StringBuilder builder = new StringBuilder();
-        builder.append("[2, \"12345\", \"/lol-summoner/v2/summoner-names\", [");
+        this.callId = RandomStringUtils.randomAlphanumeric(10);
+        builder.append("[2, \"").append(this.callId).append("\", \"/lol-summoner/v2/summoner-names\", [");
 
         List<PlayerSelection> allPlayers = new ArrayList<>();
         allPlayers.addAll(message.getData().getMyTeam());
@@ -152,25 +207,4 @@ public class WSClient extends WebSocketClient {
 
         this.send(query);
     }
-
-    @Override
-    public void onClose(int code, String reason, boolean remote) {
-        if (code != CloseFrame.NEVER_CONNECTED) {
-            if (code == CloseFrame.ABNORMAL_CLOSE) {
-                logger.info("Déconnecté du client.");
-            } else {
-                logger.error(String.format("Connexion fermée, code %d\nRaison : %s\nInitiated by remote: %b\n", code, reason, remote));
-            }
-        }
-    }
-
-    @Override
-    public void onError(Exception ex) {
-        if (ex instanceof ConnectException) {
-            logger.error("Erreur de connexion : " + ex.getMessage());
-        } else {
-            logger.error("Une exception a été levée : ", ex);
-        }
-    }
 }
-

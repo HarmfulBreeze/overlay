@@ -4,7 +4,7 @@ import com.jcs.overlay.websocket.messages.PluginResourceEvent;
 
 public class SessionMessage extends PluginResourceEvent {
     public Session getData() {
-        return data;
+        return this.data;
     }
 
     Session data;

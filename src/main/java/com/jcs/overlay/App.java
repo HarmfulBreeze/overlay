@@ -10,7 +10,6 @@ import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.HashMap;
@@ -23,7 +22,7 @@ public class App {
     private final LockfileMonitor lockfileMonitor;
     private final Thread lockfileMonitorThread;
     private WebSocketClient wsClient;
-    private WebSocketServer wsServer;
+    private final WebSocketServer wsServer;
     private WSAutoReconnect autoReconnect;
     private Thread autoReconnectThread;
 
@@ -39,13 +38,13 @@ public class App {
         return app;
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         app = new App();
         app.start();
     }
 
     public WebSocketServer getWsServer() {
-        return wsServer;
+        return this.wsServer;
     }
 
     private void start() {
@@ -58,15 +57,15 @@ public class App {
     }
 
     public LockfileMonitor getLockfileMonitor() {
-        return lockfileMonitor;
+        return this.lockfileMonitor;
     }
 
     public WebSocketClient getWsClient() {
-        return wsClient;
+        return this.wsClient;
     }
 
     void onLeagueStart(String lockfileContent) {
-        logger.info("Le client est lancé !");
+        this.logger.info("Client launched!");
 
         String[] parts = Utils.parseLockfile(lockfileContent);
         String port = parts[2];
@@ -76,30 +75,30 @@ public class App {
         Map<String, String> httpHeaders = new HashMap<>();
         httpHeaders.put("Authorization", Utils.fromPasswordToAuthToken(password));
 
-        wsClient = new WSClient(URI.create("wss://127.0.0.1:" + port + "/"), httpHeaders);
+        this.wsClient = new WSClient(URI.create("wss://127.0.0.1:" + port + "/"), httpHeaders);
         try {
-            wsClient.connectBlocking(5, TimeUnit.SECONDS);
+            this.wsClient.connectBlocking(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            this.logger.error("Exception caught:", e);
             Thread.currentThread().interrupt();
         }
 
         // On démarre le thread de reconnexion auto
-        startAutoReconnect();
+        this.startAutoReconnect();
     }
 
     void onLeagueStop() {
         if (this.autoReconnect != null) {
-            stopAutoReconnect();
-            logger.info("Le client est fermé.");
+            this.stopAutoReconnect();
+            this.logger.info("Client closed.");
         }
     }
 
     private void startAutoReconnect() {
-        autoReconnect = new WSAutoReconnect();
-        autoReconnectThread = new Thread(autoReconnect);
-        autoReconnectThread.setName("WebSocket Auto Reconnect");
-        autoReconnectThread.start();
+        this.autoReconnect = new WSAutoReconnect();
+        this.autoReconnectThread = new Thread(this.autoReconnect);
+        this.autoReconnectThread.setName("WebSocket Auto Reconnect");
+        this.autoReconnectThread.start();
     }
 
     private void stopAutoReconnect() {
@@ -107,7 +106,7 @@ public class App {
         try {
             this.autoReconnectThread.join();
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            this.logger.error("Exception caught: ", e);
         }
 
         this.autoReconnect = null;

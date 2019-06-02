@@ -17,26 +17,26 @@ public class WSServer extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        logger.info("Connecté à la page CEF !");
+        this.logger.info("Connecté à la page CEF !");
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-        logger.info("Déconnecté de la page CEF.");
+        this.logger.info("Déconnecté de la page CEF.");
     }
 
     @Override
     public void onMessage(WebSocket conn, String message) {
-        logger.info("Message reçu : " + message);
+        this.logger.info("Message reçu : " + message);
     }
 
     @Override
     public void onError(WebSocket conn, Exception ex) {
-        logger.error("Une erreur s'est produite.", ex);
+        this.logger.error("Une erreur s'est produite.", ex);
     }
 
     @Override
     public void onStart() {
-        logger.info("Serveur WebSocket démarré avec succès.");
+        this.logger.info("Serveur WebSocket démarré avec succès.");
     }
 }
