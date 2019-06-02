@@ -11,7 +11,9 @@ public class CefManager {
             System.out.println("Startup initialization failed!");
             return;
         }
-        this.mainFrame = new MainFrame("file:///C:/Users/piorr/WebstormProjects/overlay/build/index.html", false, false);
+        String url = "file:///" + System.getProperty("user.dir") + "/web/index.html";
+        url = url.replace('\\', '/');
+        this.mainFrame = new MainFrame(url, false, false);
     }
 
     public MainFrame getMainFrame() {

@@ -118,3 +118,5 @@ gradle-app.setting
 /libs/lib/win64
 !/libs/lib/win64.zip
 !/libs/*.jar
+/web/*
+!/web/web.zip
