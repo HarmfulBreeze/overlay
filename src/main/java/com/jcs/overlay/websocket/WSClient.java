@@ -4,9 +4,11 @@ import com.jcs.overlay.App;
 import com.jcs.overlay.websocket.messages.champselect.PlayerSelection;
 import com.jcs.overlay.websocket.messages.champselect.Player;
 import com.jcs.overlay.websocket.messages.champselect.SessionMessage;
+import com.jcs.overlay.websocket.messages.summoner.SummonerIdAndName;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
+import com.squareup.moshi.Types;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.framing.CloseFrame;
@@ -19,6 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.*;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.net.ConnectException;
 import java.net.URI;
 import java.security.KeyManagementException;
@@ -34,6 +37,7 @@ public class WSClient extends WebSocketClient {
 
     private final List<Player> playerList = new ArrayList<>();
     private String callId = null;
+    private final Moshi moshi = new Moshi.Builder().build();;
 
     // Accept self-signed certificate. (if anyone has a better solution, please PR)
     public WSClient(URI uri, Map<String, String> httpHeaders) {
@@ -86,9 +90,9 @@ public class WSClient extends WebSocketClient {
             return;
         }
 
-        if (message.startsWith("[3, \"" + this.callId + "\"")) {
+        if (message.startsWith("[3,\"" + this.callId + "\"")) {
             this.handleSummonerNamesUpdate(message);
-        } else if (message.startsWith("[8, \"OnJsonApiEvent_lol-champ-select_v1_session\"")) {
+        } else if (message.startsWith("[8,\"OnJsonApiEvent_lol-champ-select_v1_session\"")) {
             this.handleChampSelectMessage(message);
         } else {
             this.logger.warn("Unknown message received: " + message);
@@ -121,7 +125,27 @@ public class WSClient extends WebSocketClient {
             return;
         }
 
-        this.logger.info("Summoner Names Update message received: " + message);
+        this.logger.info("Summoner Names Update message received: " + json);
+
+        Type type = Types.newParameterizedType(List.class, SummonerIdAndName.class);
+        JsonAdapter<List<SummonerIdAndName>> jsonAdapter = this.moshi.adapter(type);
+        List<SummonerIdAndName> summonerIdsAndNames;
+        try {
+            summonerIdsAndNames = jsonAdapter.fromJson(json);
+            if (summonerIdsAndNames == null || summonerIdsAndNames.isEmpty()) {
+                throw new JsonDataException("summonerIdsAndNames is null or empty!");
+            }
+        } catch (IOException e) {
+            this.logger.error(e.getMessage(), e);
+            return;
+        }
+
+        Optional<Player> playerFound;
+        for (SummonerIdAndName idAndName : summonerIdsAndNames) {
+            Long summonerId = idAndName.getSummonerId();
+            playerFound = this.playerList.stream().filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId)).findFirst();
+            playerFound.ifPresent(player -> player.setSummonerName(idAndName.getDisplayName()));
+        }
     }
 
     private void handleChampSelectMessage(String message) {
@@ -130,10 +154,7 @@ public class WSClient extends WebSocketClient {
             return;
         }
 
-        this.logger.info(json);
-        Moshi moshi = new Moshi.Builder().build();
-
-        JsonAdapter<SessionMessage> jsonAdapter = moshi.adapter(SessionMessage.class);
+        JsonAdapter<SessionMessage> jsonAdapter = this.moshi.adapter(SessionMessage.class);
 
         SessionMessage jsonMessage;
         try {
@@ -154,8 +175,7 @@ public class WSClient extends WebSocketClient {
                 this.logger.info("Received an update!");
                 break;
             case Delete:
-                this.logger.info("Champion select has ended.");
-                // Send the request to the web component asking to close champion select.
+                this.handleChampSelectEnded();
                 break;
         }
 
@@ -165,19 +185,25 @@ public class WSClient extends WebSocketClient {
         }
     }
 
+    private void handleChampSelectEnded() {
+         this.playerList.clear();
+         // Send the request to the web component asking to close champion select.
+         this.logger.info("Champion select has ended.");
+    }
+
     /**
      * @param message The WAMP message received.
      * @return If there is a json object, it gets returned. Else, the method returns null.
      */
     @Nullable
     private String getDataFromWampMessage(String message) {
-        Pattern pattern = Pattern.compile("(\\{.*})");
+        Pattern pattern = Pattern.compile("(?:\",(.*)])");
         Matcher matcher = pattern.matcher(message);
         if (!matcher.find()) { // If the message has no json object, return null.
             return null;
         }
 
-        return matcher.group();
+        return matcher.group(1);
     }
 
     /**
@@ -206,5 +232,6 @@ public class WSClient extends WebSocketClient {
         String query = builder.toString();
 
         this.send(query);
+        this.logger.info("Sent update name request: " + query);
     }
 }

@@ -33,7 +33,7 @@ public class LockfileMonitor implements Runnable {
 
         Path lockfilePath = leagueFolderPath.resolve("lockfile");
 
-        this.logger.info("Bienvenue ! En attente de connexion au jeu...");
+        this.logger.info("Welcome! Awaiting connection to the game...");
 
         // On vérifie si le jeu est déjà démarré, si oui, se connecter directement
         if (lockfilePath.toFile().exists() && !Utils.readLockFile().isEmpty()) {

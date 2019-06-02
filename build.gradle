@@ -35,7 +35,7 @@ project.ext.lwjglNatives = "natives-windows"
 dependencies {
     implementation group: 'org.java-websocket', name: 'Java-WebSocket', version: '1.4.0'
     implementation group: 'net.java.dev.jna', name: 'jna-platform', version: '5.3.1'
-    implementation 'org.apache.commons:commons-lang3:3.9'
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
 
     // Orianna
     implementation group: 'com.merakianalytics.orianna', name: 'orianna', version: '3.0.4'
@@ -58,5 +58,5 @@ dependencies {
     compileOnly group: 'org.jetbrains', name: 'annotations', version: '+'
     compileOnly group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
     testImplementation group: 'junit', name: 'junit', version: '4.12'
-    testImplementation "org.junit.jupiter:junit-jupiter-api:5.5.+"
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.5.+'
 }

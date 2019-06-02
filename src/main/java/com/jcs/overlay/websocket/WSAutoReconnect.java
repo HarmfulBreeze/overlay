@@ -42,7 +42,7 @@ public class WSAutoReconnect implements Runnable {
                         App.getApp().getLockfileMonitor().setLeagueStarted(false);
                         this.logger.error("Could not connect, next retry in 5 seconds...");
                         stopCount++;
-                        Thread.sleep(200);
+                        Thread.sleep(5000);
                     }
                 } else {
                     Thread.sleep(1000);
