@@ -1,5 +1,9 @@
 package com.jcs.overlay.websocket.messages;
 
+import com.squareup.moshi.Json;
+
 public enum PluginResourceEventType {
-    Create, Update, Delete
+    @Json(name = "Create") CREATE,
+    @Json(name = "Update") UPDATE,
+    @Json(name = "Delete") DELETE
 }

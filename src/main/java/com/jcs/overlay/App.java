@@ -65,7 +65,7 @@ public class App {
     }
 
     void onLeagueStart(String lockfileContent) {
-        this.logger.info("Client launched!");
+        this.logger.debug("Client launched!");
 
         String[] parts = Utils.parseLockfile(lockfileContent);
         String port = parts[2];
@@ -90,7 +90,7 @@ public class App {
     void onLeagueStop() {
         if (this.autoReconnect != null) {
             this.stopAutoReconnect();
-            this.logger.info("Client closed.");
+            this.logger.debug("Client closed.");
         }
     }
 

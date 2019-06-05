@@ -1,9 +1,7 @@
 package com.jcs.overlay.websocket;
 
 import com.jcs.overlay.App;
-import com.jcs.overlay.websocket.messages.champselect.PlayerSelection;
-import com.jcs.overlay.websocket.messages.champselect.Player;
-import com.jcs.overlay.websocket.messages.champselect.SessionMessage;
+import com.jcs.overlay.websocket.messages.champselect.*;
 import com.jcs.overlay.websocket.messages.summoner.SummonerIdAndName;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
@@ -19,14 +17,20 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.*;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.ConnectException;
 import java.net.URI;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,7 +41,9 @@ public class WSClient extends WebSocketClient {
 
     private final List<Player> playerList = new ArrayList<>();
     private String callId = null;
-    private final Moshi moshi = new Moshi.Builder().build();;
+    private final Moshi moshi = new Moshi.Builder().build();
+
+    private Session currentSession = null;
 
     // Accept self-signed certificate. (if anyone has a better solution, please PR)
     public WSClient(URI uri, Map<String, String> httpHeaders) {
@@ -125,7 +131,7 @@ public class WSClient extends WebSocketClient {
             return;
         }
 
-        this.logger.info("Summoner Names Update message received: " + json);
+        this.logger.debug("Summoner Names Update message received: " + json);
 
         Type type = Types.newParameterizedType(List.class, SummonerIdAndName.class);
         JsonAdapter<List<SummonerIdAndName>> jsonAdapter = this.moshi.adapter(type);
@@ -168,24 +174,41 @@ public class WSClient extends WebSocketClient {
         }
 
         switch (jsonMessage.getEventType()) {
-            case Create:
-                this.logger.info("Champion select has started!");
+            case CREATE:
+                this.handleChampSelectCreate(jsonMessage);
                 break;
-            case Update:
-                this.logger.info("Received an update!");
+            case UPDATE:
+                this.handleChampSelectUpdate(jsonMessage);
                 break;
-            case Delete:
-                this.handleChampSelectEnded();
+            case DELETE:
+                this.handleChampSelectDelete();
                 break;
-        }
-
-        // If don't already have names, we request them.
-        if (this.callId == null) {
-            this.sendUpdateNamesRequest(jsonMessage);
         }
     }
 
-    private void handleChampSelectEnded() {
+    private void handleChampSelectCreate(SessionMessage message) {
+        this.logger.info("Champion select has started!");
+        this.currentSession = message.getSession();
+    }
+
+    private void handleChampSelectUpdate(SessionMessage message) {
+        this.logger.info("Received an update!");
+        // If don't already have names, we request them.
+        if (this.callId == null) {
+            this.sendUpdateNamesRequest(message);
+        }
+
+        List<List<Action>> actions = message.getSession().getActions();
+        if (!actions.equals(this.currentSession.getActions())) {
+            this.logger.debug("New action detected!");
+        } else {
+            this.logger.debug("No new action.");
+        }
+
+        this.currentSession = message.getSession();
+    }
+
+    private void handleChampSelectDelete() {
          this.playerList.clear();
          // Send the request to the web component asking to close champion select.
          this.logger.info("Champion select has ended.");
@@ -212,13 +235,14 @@ public class WSClient extends WebSocketClient {
      * @param message SessionMessage object containing the teams to retrieve the names of.
      */
     private void sendUpdateNamesRequest(@NotNull SessionMessage message) {
-        StringBuilder builder = new StringBuilder();
         this.callId = RandomStringUtils.randomAlphanumeric(10);
+
+        StringBuilder builder = new StringBuilder();
         builder.append("[2, \"").append(this.callId).append("\", \"/lol-summoner/v2/summoner-names\", [");
 
         List<PlayerSelection> allPlayers = new ArrayList<>();
-        allPlayers.addAll(message.getData().getMyTeam());
-        allPlayers.addAll(message.getData().getTheirTeam());
+        allPlayers.addAll(message.getSession().getMyTeam());
+        allPlayers.addAll(message.getSession().getTheirTeam());
 
         for (PlayerSelection player : allPlayers) {
             Player wrapper = new Player(player);
@@ -232,6 +256,6 @@ public class WSClient extends WebSocketClient {
         String query = builder.toString();
 
         this.send(query);
-        this.logger.info("Sent update name request: " + query);
+        this.logger.debug("Sent update name request: " + query);
     }
 }
