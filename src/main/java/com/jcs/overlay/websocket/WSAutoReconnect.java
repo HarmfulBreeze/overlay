@@ -6,15 +6,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class WSAutoReconnect implements Runnable {
-    public void stop() {
-        this.shouldStop = true;
-    }
-
-    private boolean shouldStop;
     private final Logger logger = LoggerFactory.getLogger(WSAutoReconnect.class);
-
+    private boolean shouldStop;
     public WSAutoReconnect() {
         this.shouldStop = false;
+    }
+
+    public void stop() {
+        this.shouldStop = true;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.jcs.overlay.cef;
 
+import com.jcs.overlay.App;
 import com.jcs.overlay.cef.handlers.KeyboardHandler;
 import org.cef.CefApp;
 import org.cef.CefApp.CefAppState;
@@ -42,7 +43,9 @@ public class MainFrame extends JFrame {
             @Override
             public void stateHasChanged(CefAppState state) {
                 // Shutdown the app if the native CEF part is terminated
-                if (state == CefApp.CefAppState.TERMINATED) System.exit(0);
+                if (state == CefApp.CefAppState.TERMINATED) {
+                    App.getApp().stop();
+                }
             }
         });
         CefSettings settings = new CefSettings();

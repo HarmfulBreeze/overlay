@@ -11,21 +11,22 @@ import static java.nio.file.StandardWatchEventKinds.*;
 
 public class LockfileMonitor implements Runnable {
     private final Logger logger = LoggerFactory.getLogger(LockfileMonitor.class);
+    private WatchService watchService;
 
     public synchronized void setLeagueStarted(boolean leagueStarted) {
         this.leagueStarted = leagueStarted;
     }
 
+    private boolean shouldStop = false;
     private boolean leagueStarted;
 
     @Override
     public void run() {
-        WatchService watchService;
         Path leagueFolderPath;
         try {
-            watchService = FileSystems.getDefault().newWatchService();
+            this.watchService = FileSystems.getDefault().newWatchService();
             leagueFolderPath = Utils.getLeagueDirectory().toPath();
-            leagueFolderPath.register(watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
+            leagueFolderPath.register(this.watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
         } catch (IOException e) {
             this.logger.error("Exception caught: ", e);
             return;
@@ -51,7 +52,7 @@ public class LockfileMonitor implements Runnable {
         WatchKey key;
         String lockfileContent;
         try {
-            while ((key = watchService.take()) != null) {
+            while ((key = this.watchService.take()) != null) {
                 for (WatchEvent<?> event : key.pollEvents()) {
                     // Lockfile modifié -> League mal fermé, on redémarre, ou League qui s'ouvre pour la 1ere fois
                     if (event.kind() == ENTRY_MODIFY && ((Path) event.context()).endsWith("lockfile")) {
@@ -75,6 +76,16 @@ public class LockfileMonitor implements Runnable {
         } catch (InterruptedException e) {
             this.logger.error("Exception caught: ", e);
             Thread.currentThread().interrupt();
+        } catch (ClosedWatchServiceException e) {
+            // Will be thrown when LockfileMonitor.stop() is called.
+        }
+    }
+
+    void stop() {
+        try {
+            this.watchService.close();
+        } catch (IOException e) {
+            this.logger.error("Exception caught: ", e);
         }
     }
 }

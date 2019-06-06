@@ -10,6 +10,7 @@ import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.HashMap;
@@ -54,6 +55,46 @@ public class App {
         this.wsServer.start();
 
         new CefManager();
+    }
+
+    synchronized public void stop() {
+        this.lockfileMonitor.stop();
+        this.logger.debug("Waiting for lockfile monitor to close...");
+        try {
+            this.lockfileMonitorThread.join();
+            this.logger.debug("Lockfile monitor stopped.");
+        } catch (InterruptedException e) {
+            this.logger.error("Error stopping lockfile monitor", e);
+        }
+
+        this.logger.debug("Stopping wsClient...");
+        try {
+            this.wsClient.closeBlocking();
+            this.logger.debug("wsClient stopped.");
+        } catch (InterruptedException e) {
+            this.logger.error("Error stopping wsClient", e);
+        }
+
+        this.logger.debug("Stopping wsServer...");
+        try {
+            this.wsServer.stop();
+            this.logger.debug("wsServer stopped.");
+        } catch (IOException | InterruptedException e) {
+            this.logger.error("Error stopping wsServer", e);
+        }
+
+        if (this.autoReconnect != null) {
+            this.logger.debug("Stopping WSAutoReconnect...");
+            this.autoReconnect.stop();
+            try {
+                this.autoReconnectThread.join();
+                this.logger.debug("WSAutoReconnect stopped.");
+            } catch (InterruptedException e) {
+                this.logger.error("Error stopping WSAutoReconnect", e);
+            }
+        }
+
+        this.logger.info("Successfully shut down. Bye!");
     }
 
     public LockfileMonitor getLockfileMonitor() {

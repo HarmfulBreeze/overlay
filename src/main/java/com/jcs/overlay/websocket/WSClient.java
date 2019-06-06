@@ -107,8 +107,8 @@ public class WSClient extends WebSocketClient {
 
     @Override
     public void onClose(int code, String reason, boolean remote) {
-        if (code != CloseFrame.NEVER_CONNECTED) {
-            if (code == CloseFrame.ABNORMAL_CLOSE) {
+        if (code != CloseFrame.NEVER_CONNECTED && code != CloseFrame.NORMAL) {
+            if (code == CloseFrame.ABNORMAL_CLOSE) { // Code sent by the League Client when closing
                 this.logger.info("Disconnected from client.");
             } else {
                 this.logger.error(String.format("Connection closed, code %d\nReason: %s\nInitiated by remote: %b\n", code, reason, remote));
@@ -223,10 +223,10 @@ public class WSClient extends WebSocketClient {
     }
 
     private void handleChampSelectDelete() {
-         this.playerList.clear();
+        this.playerList.clear();
         this.currentSession = null;
-         // Send the request to the web component asking to close champion select.
-         this.logger.info("Champion select has ended.");
+        // Send the request to the web component asking to close champion select.
+        this.logger.info("Champion select has ended.");
     }
 
     /**
