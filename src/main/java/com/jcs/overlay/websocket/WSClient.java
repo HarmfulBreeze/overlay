@@ -39,11 +39,11 @@ public class WSClient extends WebSocketClient {
 
     private final WebSocketServer wsServer = App.getApp().getWsServer();
 
-    private final List<Player> playerList = new ArrayList<>();
-    private String callId = null;
     private final Moshi moshi = new Moshi.Builder().build();
 
     private Session currentSession = null;
+    private final List<Player> playerList = new ArrayList<>();
+    private String callId = null;
 
     // Accept self-signed certificate. (if anyone has a better solution, please PR)
     public WSClient(URI uri, Map<String, String> httpHeaders) {
@@ -198,11 +198,25 @@ public class WSClient extends WebSocketClient {
             this.sendUpdateNamesRequest(message);
         }
 
-        List<List<Action>> actions = message.getSession().getActions();
+        Session session = message.getSession();
+
+        List<List<Action>> actions = session.getActions();
         if (!actions.equals(this.currentSession.getActions())) {
             this.logger.debug("New action detected!");
-        } else {
-            this.logger.debug("No new action.");
+        }
+
+        if (!session.getBans().equals(this.currentSession.getBans())) {
+            int[] newBan = session.getBans().getLatestBan(this.currentSession.getBans());
+            if (newBan != null) {
+                StringBuilder builder = new StringBuilder("New banned champion! Team: ");
+                if (newBan[0] == 1) {
+                    builder.append("blue, ");
+                } else {
+                    builder.append("red, ");
+                }
+                builder.append("champion ID: ").append(newBan[1]);
+                this.logger.debug(builder.toString());
+            }
         }
 
         this.currentSession = message.getSession();
@@ -210,6 +224,7 @@ public class WSClient extends WebSocketClient {
 
     private void handleChampSelectDelete() {
          this.playerList.clear();
+        this.currentSession = null;
          // Send the request to the web component asking to close champion select.
          this.logger.info("Champion select has ended.");
     }

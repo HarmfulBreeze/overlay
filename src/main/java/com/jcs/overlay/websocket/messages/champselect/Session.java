@@ -29,10 +29,6 @@ public class Session {
         return this.actions;
     }
 
-    public void setActions(List<List<Action>> actions) {
-        this.actions = actions;
-    }
-
     public BannedChampions getBans() {
         return this.bans;
     }
