@@ -7,6 +7,7 @@ import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
+import com.squareup.moshi.adapters.EnumJsonAdapter;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.framing.CloseFrame;
@@ -39,9 +40,12 @@ public class WSClient extends WebSocketClient {
 
     private final WebSocketServer wsServer = App.getApp().getWsServer();
 
-    private final Moshi moshi = new Moshi.Builder().build();
+    private final Moshi moshi = new Moshi.Builder()
+            .add(Phase.class, EnumJsonAdapter.create(Phase.class).withUnknownFallback(Phase.UNKNOWN))
+            .build();
 
     private Session currentSession = null;
+    private boolean isFirstUpdate;
     private final List<Player> playerList = new ArrayList<>();
     private String callId = null;
 
@@ -189,10 +193,11 @@ public class WSClient extends WebSocketClient {
     private void handleChampSelectCreate(SessionMessage message) {
         this.logger.info("Champion select has started!");
         this.currentSession = message.getSession();
+        this.isFirstUpdate = true;
     }
 
     private void handleChampSelectUpdate(SessionMessage message) {
-        this.logger.info("Received an update!");
+        this.logger.info("Updated!");
         // If don't already have names, we request them.
         if (this.callId == null) {
             this.sendUpdateNamesRequest(message);
@@ -200,9 +205,47 @@ public class WSClient extends WebSocketClient {
 
         Session session = message.getSession();
 
-        List<List<Action>> actions = session.getActions();
-        if (!actions.equals(this.currentSession.getActions())) {
+        if (this.isFirstUpdate) {
+            if (session.isSpectating()) {
+                this.logger.debug("Currently spectating the game.");
+            } else {
+                this.logger.debug("Not a spectator!");
+            }
+
+            this.isFirstUpdate = false;
+        }
+
+        List<List<Action>> newActions = session.getActions();
+        List<List<Action>> oldActions = this.currentSession.getActions();
+        if (!newActions.equals(oldActions)) {
             this.logger.debug("New action detected!");
+
+            List<Action> actionGroup = newActions.get(newActions.size() - 1);
+            Action latestAction = actionGroup.get(actionGroup.size() - 1);
+
+            StringBuilder builder = new StringBuilder(this.playerList.get((int) latestAction.getActorCellId()).getSummonerName());
+            if (latestAction.getType().equals("ban")) { // User is banning
+                if (!latestAction.isCompleted()) {
+                    builder.append(" is banning... ");
+                    if (latestAction.getChampionId() != 0) {
+                        builder.append("Currently chosen: ").append(latestAction.getChampionId());
+                    }
+                } else {
+                    builder.append(" banned ").append(latestAction.getChampionId());
+                }
+            } else if (latestAction.getType().equals("pick")) { // User is picking
+                if (!latestAction.isCompleted()) {
+                    builder.append(" is picking... ");
+                    if (latestAction.getChampionId() != 0) {
+                        builder.append("Currently chosen: ").append(latestAction.getChampionId());
+                    }
+                } else {
+                    builder.append(" picked ").append(latestAction.getChampionId());
+                }
+            }
+            // TODO: handle 10 bans reveal
+
+            this.logger.debug(builder.toString());
         }
 
         if (!session.getBans().equals(this.currentSession.getBans())) {
@@ -217,6 +260,12 @@ public class WSClient extends WebSocketClient {
                 builder.append("champion ID: ").append(newBan[1]);
                 this.logger.debug(builder.toString());
             }
+        }
+
+        Timer timer = session.getTimer();
+        Phase newPhase = timer.getPhase();
+        if (newPhase != this.currentSession.getTimer().getPhase() && newPhase != Phase.UNKNOWN) {
+            this.logger.debug("New phase: " + newPhase);
         }
 
         this.currentSession = message.getSession();

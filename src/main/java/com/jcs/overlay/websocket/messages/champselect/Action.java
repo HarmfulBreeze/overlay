@@ -9,6 +9,22 @@ public class Action {
     private String type;
     private boolean completed;
 
+    public long getActorCellId() {
+        return this.actorCellId;
+    }
+
+    public int getChampionId() {
+        return this.championId;
+    }
+
+    public String getType() {
+        return this.type;
+    }
+
+    public boolean isCompleted() {
+        return this.completed;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

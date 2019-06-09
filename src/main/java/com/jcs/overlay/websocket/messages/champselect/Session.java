@@ -41,10 +41,6 @@ public class Session {
         return this.isSpectating;
     }
 
-    public long getLocalPlayerCellId() {
-        return this.localPlayerCellId;
-    }
-
     public List<PlayerSelection> getMyTeam() {
         return this.myTeam;
     }
@@ -55,9 +51,5 @@ public class Session {
 
     public Timer getTimer() {
         return this.timer;
-    }
-
-    public List<TradeContract> getTrades() {
-        return this.trades;
     }
 }

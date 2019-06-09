@@ -48,7 +48,7 @@ public class App {
         return this.wsServer;
     }
 
-    private void start() {
+    synchronized private void start() {
         this.lockfileMonitorThread.setName("Lockfile Monitor");
         this.lockfileMonitorThread.start();
 

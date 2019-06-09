@@ -46,6 +46,7 @@ dependencies {
 
     // Moshi
     implementation group: 'com.squareup.moshi', name: 'moshi', version: '1.8.0'
+    implementation group: 'com.squareup.moshi', name: 'moshi-adapters', version: '1.8.0'
 
     // CEF (from JAR)
     implementation name: "jcef"
