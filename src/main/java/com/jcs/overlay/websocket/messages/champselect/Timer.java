@@ -16,12 +16,20 @@ public class Timer {
         return this.adjustedTimeLeftInPhaseInSec;
     }
 
+    public long getTimeLeftInPhase() {
+        return this.timeLeftInPhase;
+    }
+
     public long getTotalTimeInPhase() {
         return this.totalTimeInPhase;
     }
 
     public Phase getPhase() {
         return this.phase;
+    }
+
+    public Long getInternalNowInEpochMs() {
+        return this.internalNowInEpochMs;
     }
 
     public boolean isInfinite() {

@@ -1,8 +1,10 @@
 package com.jcs.overlay.websocket;
 
 import com.jcs.overlay.App;
+import com.jcs.overlay.websocket.messages.champselect.Timer;
 import com.jcs.overlay.websocket.messages.champselect.*;
 import com.jcs.overlay.websocket.messages.summoner.SummonerIdAndName;
+import com.merakianalytics.orianna.types.core.staticdata.Champion;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
@@ -28,10 +30,7 @@ import java.net.ConnectException;
 import java.net.URI;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,7 +43,7 @@ public class WSClient extends WebSocketClient {
             .add(Phase.class, EnumJsonAdapter.create(Phase.class).withUnknownFallback(Phase.UNKNOWN))
             .build();
 
-    private Session currentSession = null;
+    private Session previousSession = null;
     private boolean isFirstUpdate;
     private final List<Player> playerList = new ArrayList<>();
     private String callId = null;
@@ -192,18 +191,19 @@ public class WSClient extends WebSocketClient {
 
     private void handleChampSelectCreate(SessionMessage message) {
         this.logger.info("Champion select has started!");
-        this.currentSession = message.getSession();
+        this.previousSession = message.getSession();
         this.isFirstUpdate = true;
     }
 
     private void handleChampSelectUpdate(SessionMessage message) {
         this.logger.info("Updated!");
-        // If don't already have names, we request them.
-        if (this.callId == null) {
-            this.sendUpdateNamesRequest(message);
-        }
 
         Session session = message.getSession();
+
+        // If don't already have names, we request them.
+        if (this.callId == null) {
+            this.sendUpdateNamesRequest(session);
+        }
 
         if (this.isFirstUpdate) {
             if (session.isSpectating()) {
@@ -216,7 +216,7 @@ public class WSClient extends WebSocketClient {
         }
 
         List<List<Action>> newActions = session.getActions();
-        List<List<Action>> oldActions = this.currentSession.getActions();
+        List<List<Action>> oldActions = this.previousSession.getActions();
         if (!newActions.equals(oldActions)) {
             this.logger.debug("New action detected!");
 
@@ -228,19 +228,19 @@ public class WSClient extends WebSocketClient {
                 if (!latestAction.isCompleted()) {
                     builder.append(" is banning... ");
                     if (latestAction.getChampionId() != 0) {
-                        builder.append("Currently chosen: ").append(latestAction.getChampionId());
+                        builder.append("Currently chosen: ").append(Champion.withId(latestAction.getChampionId()).get().getName());
                     }
                 } else {
-                    builder.append(" banned ").append(latestAction.getChampionId());
+                    builder.append(" banned ").append(Champion.withId(latestAction.getChampionId()).get().getName());
                 }
             } else if (latestAction.getType().equals("pick")) { // User is picking
                 if (!latestAction.isCompleted()) {
                     builder.append(" is picking... ");
                     if (latestAction.getChampionId() != 0) {
-                        builder.append("Currently chosen: ").append(latestAction.getChampionId());
+                        builder.append("Currently chosen: ").append(Champion.withId(latestAction.getChampionId()).get().getName());
                     }
                 } else {
-                    builder.append(" picked ").append(latestAction.getChampionId());
+                    builder.append(" picked ").append(Champion.withId(latestAction.getChampionId()).get().getName());
                 }
             }
             // TODO: handle 10 bans reveal
@@ -248,8 +248,8 @@ public class WSClient extends WebSocketClient {
             this.logger.debug(builder.toString());
         }
 
-        if (!session.getBans().equals(this.currentSession.getBans())) {
-            int[] newBan = session.getBans().getLatestBan(this.currentSession.getBans());
+        if (!session.getBans().equals(this.previousSession.getBans())) {
+            int[] newBan = session.getBans().getLatestBan(this.previousSession.getBans());
             if (newBan != null) {
                 StringBuilder builder = new StringBuilder("New banned champion! Team: ");
                 if (newBan[0] == 1) {
@@ -257,23 +257,33 @@ public class WSClient extends WebSocketClient {
                 } else {
                     builder.append("red, ");
                 }
-                builder.append("champion ID: ").append(newBan[1]);
+                Champion champion = Champion.withId(newBan[1]).get();
+                builder.append("champion: ").append(champion.getName());
                 this.logger.debug(builder.toString());
             }
         }
 
         Timer timer = session.getTimer();
         Phase newPhase = timer.getPhase();
-        if (newPhase != this.currentSession.getTimer().getPhase() && newPhase != Phase.UNKNOWN) {
-            this.logger.debug("New phase: " + newPhase);
+        // TODO: handle unknown phase better
+        if (newPhase != Phase.UNKNOWN) { // If phase is known, that also means that timer is loaded properly
+            if (newPhase != this.previousSession.getTimer().getPhase()) {
+                this.logger.debug("New phase: " + newPhase);
+            }
+
+            // logic to implement in the web component to reduce timer lag as much as possible
+            Date date = new Date();
+            long delta = date.getTime() - timer.getInternalNowInEpochMs();
+            long timeToSetTo = timer.getTimeLeftInPhase() - delta;
+            this.logger.debug("Should set timer to " + timeToSetTo);
         }
 
-        this.currentSession = message.getSession();
+        this.previousSession = message.getSession();
     }
 
     private void handleChampSelectDelete() {
         this.playerList.clear();
-        this.currentSession = null;
+        this.previousSession = null;
         // Send the request to the web component asking to close champion select.
         this.logger.info("Champion select has ended.");
     }
@@ -296,17 +306,17 @@ public class WSClient extends WebSocketClient {
     /**
      * Sends the WebSocket query message to retrieve all teams from the provided SessionMessage.
      *
-     * @param message SessionMessage object containing the teams to retrieve the names of.
+     * @param session SessionMessage object containing the teams to retrieve the names of.
      */
-    private void sendUpdateNamesRequest(@NotNull SessionMessage message) {
+    private void sendUpdateNamesRequest(Session session) {
         this.callId = RandomStringUtils.randomAlphanumeric(10);
 
         StringBuilder builder = new StringBuilder();
         builder.append("[2, \"").append(this.callId).append("\", \"/lol-summoner/v2/summoner-names\", [");
 
         List<PlayerSelection> allPlayers = new ArrayList<>();
-        allPlayers.addAll(message.getSession().getMyTeam());
-        allPlayers.addAll(message.getSession().getTheirTeam());
+        allPlayers.addAll(session.getMyTeam());
+        allPlayers.addAll(session.getTheirTeam());
 
         for (PlayerSelection player : allPlayers) {
             Player wrapper = new Player(player);

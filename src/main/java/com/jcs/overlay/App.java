@@ -5,6 +5,8 @@ import com.jcs.overlay.utils.Utils;
 import com.jcs.overlay.websocket.WSAutoReconnect;
 import com.jcs.overlay.websocket.WSClient;
 import com.jcs.overlay.websocket.WSServer;
+import com.merakianalytics.orianna.Orianna;
+import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
@@ -22,8 +24,8 @@ public class App {
     private final Logger logger = LoggerFactory.getLogger(App.class);
     private final LockfileMonitor lockfileMonitor;
     private final Thread lockfileMonitorThread;
-    private WebSocketClient wsClient;
     private final WebSocketServer wsServer;
+    private WebSocketClient wsClient;
     private WSAutoReconnect autoReconnect;
     private Thread autoReconnectThread;
 
@@ -33,15 +35,21 @@ public class App {
 
         InetSocketAddress address = new InetSocketAddress("localhost", 8887);
         this.wsServer = new WSServer(address);
-    }
 
-    public static App getApp() {
-        return app;
+        // Orianna
+        Orianna.loadConfiguration("config.json");
+        // Pre-caching
+        Champions champions = Champions.get();
+        champions.get(0);
     }
 
     public static void main(String[] args) {
         app = new App();
         app.start();
+    }
+
+    public static App getApp() {
+        return app;
     }
 
     public WebSocketServer getWsServer() {
@@ -58,6 +66,7 @@ public class App {
     }
 
     synchronized public void stop() {
+        this.logger.info("Shutting down...");
         this.lockfileMonitor.stop();
         this.logger.debug("Waiting for lockfile monitor to close...");
         try {

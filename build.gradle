@@ -11,6 +11,11 @@ application {
     mainClassName = 'com.jcs.overlay.App'
 }
 
+wrapper {
+    gradleVersion = '5.4.1'
+    distributionType = Wrapper.DistributionType.ALL
+}
+
 sourceCompatibility = 1.8
 
 tasks.withType(JavaCompile) {
@@ -42,7 +47,7 @@ dependencies {
     implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
 
     // Orianna
-    implementation group: 'com.merakianalytics.orianna', name: 'orianna', version: '3.0.4'
+    implementation group: 'com.merakianalytics.orianna', name: 'orianna', version: '4.0.0-rc3'
 
     // Moshi
     implementation group: 'com.squareup.moshi', name: 'moshi', version: '1.8.0'
