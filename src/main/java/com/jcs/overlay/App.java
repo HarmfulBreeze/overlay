@@ -40,7 +40,7 @@ public class App {
         Orianna.loadConfiguration("config.json");
         // Pre-caching
         Champions champions = Champions.get();
-        champions.get(0);
+        champions.load();
     }
 
     public static void main(String[] args) {
@@ -76,12 +76,14 @@ public class App {
             this.logger.error("Error stopping lockfile monitor", e);
         }
 
-        this.logger.debug("Stopping wsClient...");
-        try {
-            this.wsClient.closeBlocking();
-            this.logger.debug("wsClient stopped.");
-        } catch (InterruptedException e) {
-            this.logger.error("Error stopping wsClient", e);
+        if (this.wsClient != null) {
+            this.logger.debug("Stopping wsClient...");
+            try {
+                this.wsClient.closeBlocking();
+                this.logger.debug("wsClient stopped.");
+            } catch (InterruptedException e) {
+                this.logger.error("Error stopping wsClient", e);
+            }
         }
 
         this.logger.debug("Stopping wsServer...");
