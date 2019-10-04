@@ -1,4 +1,4 @@
-package com.jcs.overlay.websocket.messages.summoner;
+package com.jcs.overlay.websocket.messages.C2J.summoner;
 
 public class SummonerIdAndName {
     private Long summonerId;

@@ -1,5 +1,6 @@
 package com.jcs.overlay.websocket;
 
+import com.squareup.moshi.Moshi;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -10,6 +11,7 @@ import java.net.InetSocketAddress;
 
 public class WSServer extends WebSocketServer {
     private final Logger logger = LoggerFactory.getLogger(WSServer.class);
+    private final Moshi moshi = new Moshi.Builder().build();
 
     public WSServer(InetSocketAddress address) {
         super(address);

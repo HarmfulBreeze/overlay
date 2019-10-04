@@ -25,11 +25,12 @@ public class App {
     private final LockfileMonitor lockfileMonitor;
     private final Thread lockfileMonitorThread;
     private final WebSocketServer wsServer;
+    private final boolean guiEnabled;
     private WebSocketClient wsClient;
     private WSAutoReconnect autoReconnect;
     private Thread autoReconnectThread;
 
-    private App() {
+    private App(boolean guiEnabled) {
         this.lockfileMonitor = new LockfileMonitor();
         this.lockfileMonitorThread = new Thread(this.lockfileMonitor);
 
@@ -39,12 +40,17 @@ public class App {
         // Orianna
         Orianna.loadConfiguration("config.json");
         // Pre-caching
-        Champions champions = Champions.get();
-        champions.load();
+        Champions.get().load();
+
+        this.guiEnabled = guiEnabled;
     }
 
     public static void main(String[] args) {
-        app = new App();
+        if (args.length > 0 && args[0].equals("-nogui")) {
+            app = new App(false);
+        } else {
+            app = new App(true);
+        }
         app.start();
     }
 
@@ -62,7 +68,9 @@ public class App {
 
         this.wsServer.start();
 
-        new CefManager();
+        if (this.guiEnabled) {
+            new CefManager();
+        }
     }
 
     synchronized public void stop() {

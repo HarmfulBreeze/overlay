@@ -1,4 +1,4 @@
-package com.jcs.overlay.websocket.messages;
+package com.jcs.overlay.websocket.messages.C2J;
 
 public class PluginResourceEvent {
     public String getUri() {

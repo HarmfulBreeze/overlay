@@ -1,4 +1,4 @@
-package com.jcs.overlay.websocket.messages.champselect;
+package com.jcs.overlay.websocket.messages.C2J.champselect;
 
 /**
  * Simple wrapper for the {@link PlayerSelection} class, adding summonerName.

@@ -1,9 +1,12 @@
 package com.jcs.overlay.websocket;
 
 import com.jcs.overlay.App;
-import com.jcs.overlay.websocket.messages.champselect.Timer;
-import com.jcs.overlay.websocket.messages.champselect.*;
-import com.jcs.overlay.websocket.messages.summoner.SummonerIdAndName;
+import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
+import com.jcs.overlay.websocket.messages.C2J.champselect.*;
+import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
+import com.jcs.overlay.websocket.messages.J2O.ChampSelectCreateMessage;
+import com.jcs.overlay.websocket.messages.J2O.ChampSelectDeleteMessage;
+import com.jcs.overlay.websocket.messages.J2O.TeamNames;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
@@ -193,6 +196,13 @@ public class WSClient extends WebSocketClient {
         this.logger.info("Champion select has started!");
         this.previousSession = message.getSession();
         this.isFirstUpdate = true;
+
+        // TODO: make it customizable
+        TeamNames teamNames = new TeamNames("Blue team", "Red team");
+        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames);
+        JsonAdapter<ChampSelectCreateMessage> adapter = this.moshi.adapter(ChampSelectCreateMessage.class);
+        String json = adapter.toJson(createMessage);
+        this.wsServer.broadcast(json);
     }
 
     private void handleChampSelectUpdate(SessionMessage message) {
@@ -200,7 +210,7 @@ public class WSClient extends WebSocketClient {
 
         Session session = message.getSession();
 
-        // If don't already have names, we request them.
+        // If we don't already have names, we request them.
         if (this.callId == null) {
             this.sendUpdateNamesRequest(session);
         }
@@ -286,6 +296,10 @@ public class WSClient extends WebSocketClient {
         this.previousSession = null;
         // Send the request to the web component asking to close champion select.
         this.logger.info("Champion select has ended.");
+
+        ChampSelectDeleteMessage deleteMessage = new ChampSelectDeleteMessage();
+        String json = this.moshi.adapter(ChampSelectDeleteMessage.class).toJson(deleteMessage);
+        this.wsServer.broadcast(json);
     }
 
     /**

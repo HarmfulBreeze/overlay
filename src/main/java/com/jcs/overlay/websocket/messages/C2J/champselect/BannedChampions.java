@@ -1,4 +1,4 @@
-package com.jcs.overlay.websocket.messages.champselect;
+package com.jcs.overlay.websocket.messages.C2J.champselect;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;

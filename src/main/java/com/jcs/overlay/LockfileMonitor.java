@@ -17,7 +17,6 @@ public class LockfileMonitor implements Runnable {
         this.leagueStarted = leagueStarted;
     }
 
-    private boolean shouldStop = false;
     private boolean leagueStarted;
 
     @Override
