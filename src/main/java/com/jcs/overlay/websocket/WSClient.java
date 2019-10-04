@@ -292,6 +292,7 @@ public class WSClient extends WebSocketClient {
     }
 
     private void handleChampSelectDelete() {
+        this.callId = null;
         this.playerList.clear();
         this.previousSession = null;
         // Send the request to the web component asking to close champion select.
