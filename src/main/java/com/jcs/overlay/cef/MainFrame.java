@@ -109,6 +109,7 @@ public class MainFrame extends JFrame {
         this.setSize(1600, 900);
         this.setResizable(false);
         this.setVisible(true);
+        this.setTitle("Overlay");
 
         // (6) To take care of shutting down CEF accordingly, it's important to call
         //     the method "dispose()" of the CefApp instance if the Java

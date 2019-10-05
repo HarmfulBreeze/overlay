@@ -6,6 +6,7 @@ import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
 import com.jcs.overlay.websocket.messages.J2O.ChampSelectCreateMessage;
 import com.jcs.overlay.websocket.messages.J2O.ChampSelectDeleteMessage;
+import com.jcs.overlay.websocket.messages.J2O.NewPick;
 import com.jcs.overlay.websocket.messages.J2O.TeamNames;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
 import com.squareup.moshi.JsonAdapter;
@@ -49,7 +50,8 @@ public class WSClient extends WebSocketClient {
     private Session previousSession = null;
     private boolean isFirstUpdate;
     private final List<Player> playerList = new ArrayList<>();
-    private String callId = null;
+    private String summonerNamesCallId = null;
+    private String chatCallId = null;
 
     // Accept self-signed certificate. (if anyone has a better solution, please PR)
     public WSClient(URI uri, Map<String, String> httpHeaders) {
@@ -88,27 +90,30 @@ public class WSClient extends WebSocketClient {
         this.setSocketFactory(factory);
     }
 
-    @Override
-    public void onOpen(ServerHandshake handshakedata) {
-        this.send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
-//        this.send("[5, \"OnJsonApiEvent\"]");
-//        this.send("[2, \"12345\", \"/lol-summoner/v2/summoner-names\", [33968983, 33968984]]");
-        this.logger.info("Connected to the client!");
+    /**
+     * @param message The WAMP message received.
+     * @return If there is a json object, it gets returned. Else, the method returns null.
+     */
+    @Nullable
+    private static String getDataFromWampMessage(@NotNull String message) {
+        Pattern pattern = Pattern.compile("(?:\",(.*)])");
+        Matcher matcher = pattern.matcher(message);
+        if (!matcher.find()) { // If the message has no json object, return null.
+            return null;
+        }
+
+        return matcher.group(1);
     }
 
-    @Override
-    public void onMessage(@NotNull String message) {
-        if (message.isEmpty()) {
-            return;
+    @Nullable
+    private static String getSessionStateFromJson(@NotNull String json) {
+        Pattern pattern = Pattern.compile("(?:\"sessionState\":\"(.*)\"})");
+        Matcher matcher = pattern.matcher(json);
+        if (!matcher.find()) {
+            return null;
         }
 
-        if (message.startsWith("[3,\"" + this.callId + "\"")) {
-            this.handleSummonerNamesUpdate(message);
-        } else if (message.startsWith("[8,\"OnJsonApiEvent_lol-champ-select_v1_session\"")) {
-            this.handleChampSelectMessage(message);
-        } else {
-            this.logger.warn("Unknown message received: " + message);
-        }
+        return matcher.group(1);
     }
 
     @Override
@@ -131,8 +136,82 @@ public class WSClient extends WebSocketClient {
         }
     }
 
+    @Override
+    public void onOpen(ServerHandshake handshakedata) {
+//        this.send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
+//        this.send("[5, \"OnJsonApiEvent\"]");
+//        this.send("[2, \"12345\", \"/lol-summoner/v2/summoner-names\", [33968983, 33968984]]");
+//        this.send("[2, \"12345\", \"GetLolChatV1Session\"]");
+        this.logger.info("Connected to the client!");
+        this.requestChatSessionState();
+    }
+
+    @Override
+    public void onMessage(@NotNull String message) {
+        if (message.isEmpty()) {
+            return;
+        }
+
+        if (message.startsWith("[3,\"" + this.summonerNamesCallId + "\"")) {
+            this.handleSummonerNamesUpdate(message);
+        } else if (message.startsWith("[3,\"" + this.chatCallId + "\"")) {
+            this.handleChatSessionMessage(message);
+        } else if (message.startsWith("[8,\"OnJsonApiEvent_lol-champ-select_v1_session\"")) {
+            this.handleChampSelectMessage(message);
+        } else {
+            this.logger.warn("Unknown message received: " + message);
+        }
+    }
+
+    private void requestChatSessionState() {
+        this.chatCallId = RandomStringUtils.randomAlphanumeric(10);
+        String query = "[2, \"" + this.chatCallId + "\", \"GetLolChatV1Session\"]";
+        this.send(query);
+    }
+
+    private void handleChatSessionMessage(String message) {
+        String json = WSClient.getDataFromWampMessage(message);
+        if (json == null) {
+            // chat plugin isn't loaded, most likely
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                this.logger.error(e.getMessage(), e);
+            }
+            this.requestChatSessionState(); // we request the chat state again
+            return;
+        }
+
+        String sessionState = WSClient.getSessionStateFromJson(json);
+        if (sessionState != null && (sessionState.equals("loaded") || sessionState.equals("connected"))) {
+            this.send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
+            this.logger.debug("Subscribed to champ select events.");
+        } else {
+            // chat plugin probably still not loaded
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                this.logger.error(e.getMessage(), e);
+            }
+            this.requestChatSessionState();
+        }
+    }
+
+    private void handleChampSelectCreate(SessionMessage message) {
+        this.logger.info("Champion select has started!");
+        this.previousSession = message.getSession();
+        this.isFirstUpdate = true;
+
+        // TODO: make it customizable
+        TeamNames teamNames = new TeamNames("Blue team", "Red team");
+        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames);
+        JsonAdapter<ChampSelectCreateMessage> adapter = this.moshi.adapter(ChampSelectCreateMessage.class);
+        String json = adapter.toJson(createMessage);
+        this.wsServer.broadcast(json);
+    }
+
     private void handleSummonerNamesUpdate(String message) {
-        String json = this.getDataFromWampMessage(message);
+        String json = WSClient.getDataFromWampMessage(message);
         if (json == null) {
             return;
         }
@@ -161,7 +240,7 @@ public class WSClient extends WebSocketClient {
     }
 
     private void handleChampSelectMessage(String message) {
-        String json = this.getDataFromWampMessage(message);
+        String json = WSClient.getDataFromWampMessage(message);
         if (json == null) {
             return;
         }
@@ -192,26 +271,13 @@ public class WSClient extends WebSocketClient {
         }
     }
 
-    private void handleChampSelectCreate(SessionMessage message) {
-        this.logger.info("Champion select has started!");
-        this.previousSession = message.getSession();
-        this.isFirstUpdate = true;
-
-        // TODO: make it customizable
-        TeamNames teamNames = new TeamNames("Blue team", "Red team");
-        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames);
-        JsonAdapter<ChampSelectCreateMessage> adapter = this.moshi.adapter(ChampSelectCreateMessage.class);
-        String json = adapter.toJson(createMessage);
-        this.wsServer.broadcast(json);
-    }
-
     private void handleChampSelectUpdate(SessionMessage message) {
         this.logger.info("Updated!");
 
         Session session = message.getSession();
 
         // If we don't already have names, we request them.
-        if (this.callId == null) {
+        if (this.summonerNamesCallId == null) {
             this.sendUpdateNamesRequest(session);
         }
 
@@ -233,29 +299,40 @@ public class WSClient extends WebSocketClient {
             List<Action> actionGroup = newActions.get(newActions.size() - 1);
             Action latestAction = actionGroup.get(actionGroup.size() - 1);
 
+            String json = null;
             StringBuilder builder = new StringBuilder(this.playerList.get((int) latestAction.getActorCellId()).getSummonerName());
-            if (latestAction.getType().equals("ban")) { // User is banning
-                if (!latestAction.isCompleted()) {
+            if (latestAction.getType().equals("ban")) {
+                if (!latestAction.isCompleted()) { // Player is banning
                     builder.append(" is banning... ");
-                    if (latestAction.getChampionId() != 0) {
+                    if (latestAction.getChampionId() != 0) { //
                         builder.append("Currently chosen: ").append(Champion.withId(latestAction.getChampionId()).get().getName());
                     }
-                } else {
+                } else { // Player has banned
                     builder.append(" banned ").append(Champion.withId(latestAction.getChampionId()).get().getName());
                 }
-            } else if (latestAction.getType().equals("pick")) { // User is picking
-                if (!latestAction.isCompleted()) {
+            } else if (latestAction.getType().equals("pick")) {
+                if (!latestAction.isCompleted()) { // Player is picking
                     builder.append(" is picking... ");
                     if (latestAction.getChampionId() != 0) {
                         builder.append("Currently chosen: ").append(Champion.withId(latestAction.getChampionId()).get().getName());
                     }
-                } else {
-                    builder.append(" picked ").append(Champion.withId(latestAction.getChampionId()).get().getName());
+                } else { // Player has picked
+                    String championName = Champion.withId(latestAction.getChampionId()).get().getName();
+                    builder.append(" picked ").append(championName);
+
+                    // Broadcast it to webapp
+                    NewPick newPick = new NewPick(championName, latestAction.getActorCellId());
+                    JsonAdapter<NewPick> adapter = this.moshi.adapter(NewPick.class);
+                    json = adapter.toJson(newPick);
                 }
             }
             // TODO: handle 10 bans reveal
 
             this.logger.debug(builder.toString());
+            if (json != null) {
+                this.logger.debug("JSON to be sent to webapp: " + json);
+                this.wsServer.broadcast(json);
+            }
         }
 
         if (!session.getBans().equals(this.previousSession.getBans())) {
@@ -276,7 +353,7 @@ public class WSClient extends WebSocketClient {
         Timer timer = session.getTimer();
         Phase newPhase = timer.getPhase();
         // TODO: handle unknown phase better
-        if (newPhase != Phase.UNKNOWN) { // If phase is known, that also means that timer is loaded properly
+        if (newPhase != Phase.UNKNOWN) { // If phase is known, we can consider that we have info on the timer
             if (newPhase != this.previousSession.getTimer().getPhase()) {
                 this.logger.debug("New phase: " + newPhase);
             }
@@ -292,7 +369,7 @@ public class WSClient extends WebSocketClient {
     }
 
     private void handleChampSelectDelete() {
-        this.callId = null;
+        this.summonerNamesCallId = null;
         this.playerList.clear();
         this.previousSession = null;
         // Send the request to the web component asking to close champion select.
@@ -304,30 +381,15 @@ public class WSClient extends WebSocketClient {
     }
 
     /**
-     * @param message The WAMP message received.
-     * @return If there is a json object, it gets returned. Else, the method returns null.
-     */
-    @Nullable
-    private String getDataFromWampMessage(String message) {
-        Pattern pattern = Pattern.compile("(?:\",(.*)])");
-        Matcher matcher = pattern.matcher(message);
-        if (!matcher.find()) { // If the message has no json object, return null.
-            return null;
-        }
-
-        return matcher.group(1);
-    }
-
-    /**
      * Sends the WebSocket query message to retrieve all teams from the provided SessionMessage.
      *
      * @param session SessionMessage object containing the teams to retrieve the names of.
      */
     private void sendUpdateNamesRequest(Session session) {
-        this.callId = RandomStringUtils.randomAlphanumeric(10);
+        this.summonerNamesCallId = RandomStringUtils.randomAlphanumeric(10);
 
         StringBuilder builder = new StringBuilder();
-        builder.append("[2, \"").append(this.callId).append("\", \"/lol-summoner/v2/summoner-names\", [");
+        builder.append("[2, \"").append(this.summonerNamesCallId).append("\", \"/lol-summoner/v2/summoner-names\", [");
 
         List<PlayerSelection> allPlayers = new ArrayList<>();
         allPlayers.addAll(session.getMyTeam());
