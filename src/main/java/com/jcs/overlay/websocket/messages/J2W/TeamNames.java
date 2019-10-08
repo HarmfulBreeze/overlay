@@ -1,4 +1,4 @@
-package com.jcs.overlay.websocket.messages.J2O;
+package com.jcs.overlay.websocket.messages.J2W;
 
 public class TeamNames {
     private final String team100;

@@ -4,10 +4,7 @@ import com.jcs.overlay.App;
 import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
 import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
-import com.jcs.overlay.websocket.messages.J2O.ChampSelectCreateMessage;
-import com.jcs.overlay.websocket.messages.J2O.ChampSelectDeleteMessage;
-import com.jcs.overlay.websocket.messages.J2O.NewPick;
-import com.jcs.overlay.websocket.messages.J2O.TeamNames;
+import com.jcs.overlay.websocket.messages.J2W.*;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
@@ -215,9 +212,9 @@ public class WSClient extends WebSocketClient {
         if (json == null) {
             return;
         }
+        this.logger.debug("Received summoner names message!");
 
-        this.logger.debug("Summoner Names Update message received: " + json);
-
+        // Deserialize JSON
         Type type = Types.newParameterizedType(List.class, SummonerIdAndName.class);
         JsonAdapter<List<SummonerIdAndName>> jsonAdapter = this.moshi.adapter(type);
         List<SummonerIdAndName> summonerIdsAndNames;
@@ -231,12 +228,25 @@ public class WSClient extends WebSocketClient {
             return;
         }
 
+        // We update our playerList with the summoner names
         Optional<Player> playerFound;
         for (SummonerIdAndName idAndName : summonerIdsAndNames) {
             Long summonerId = idAndName.getSummonerId();
             playerFound = this.playerList.stream().filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId)).findFirst();
             playerFound.ifPresent(player -> player.setSummonerName(idAndName.getDisplayName()));
         }
+
+        // Finally we communicate the summoner names to the webapp
+        Map<Integer, String> playerMap = new HashMap<>();
+        for (Player player : this.playerList) {
+            int cellId = (int) player.getPlayerSelection().getCellId(); // cast is okay since cellId should 0-9
+            String summonerName = player.getSummonerName();
+            playerMap.put(cellId, summonerName);
+        }
+        PlayerNames playerNames = new PlayerNames(playerMap);
+        JsonAdapter<PlayerNames> adapter = this.moshi.adapter(PlayerNames.class);
+        String jsonToWebapp = adapter.toJson(playerNames);
+        this.wsServer.broadcast(jsonToWebapp);
     }
 
     private void handleChampSelectMessage(String message) {
@@ -281,6 +291,7 @@ public class WSClient extends WebSocketClient {
             this.sendUpdateNamesRequest(session);
         }
 
+        // Check if this we're spectating or not. Unused for now.
         if (this.isFirstUpdate) {
             if (session.isSpectating()) {
                 this.logger.debug("Currently spectating the game.");
@@ -358,11 +369,11 @@ public class WSClient extends WebSocketClient {
                 this.logger.debug("New phase: " + newPhase);
             }
 
-            // logic to implement in the web component to reduce timer lag as much as possible
-            Date date = new Date();
-            long delta = date.getTime() - timer.getInternalNowInEpochMs();
-            long timeToSetTo = timer.getTimeLeftInPhase() - delta;
-            this.logger.debug("Should set timer to " + timeToSetTo);
+            // Update timer in webapp
+            SetTimerMessage setTimerMessage = new SetTimerMessage(timer.getInternalNowInEpochMs(), timer.getTimeLeftInPhase());
+            JsonAdapter<SetTimerMessage> adapter = this.moshi.adapter(SetTimerMessage.class);
+            String jsonToWebapp = adapter.toJson(setTimerMessage);
+            this.wsServer.broadcast(jsonToWebapp);
         }
 
         this.previousSession = message.getSession();
