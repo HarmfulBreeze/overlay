@@ -9,6 +9,10 @@ public class Action {
     private String type;
     private boolean completed;
 
+    public long getId() {
+        return this.id;
+    }
+
     public long getActorCellId() {
         return this.actorCellId;
     }

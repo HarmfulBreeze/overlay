@@ -46,9 +46,12 @@ public class WSClient extends WebSocketClient {
 
     private Session previousSession = null;
     private boolean isFirstUpdate;
+    private boolean receivedSummonerNamesUpdate;
     private final List<Player> playerList = new ArrayList<>();
+    private Integer previousActiveActionGroup = null;
     private String summonerNamesCallId = null;
     private String chatCallId = null;
+    private List<SessionMessage> updateMessagesQueue;
 
     // Accept self-signed certificate. (if anyone has a better solution, please PR)
     public WSClient(URI uri, Map<String, String> httpHeaders) {
@@ -198,6 +201,9 @@ public class WSClient extends WebSocketClient {
         this.logger.info("Champion select has started!");
         this.previousSession = message.getSession();
         this.isFirstUpdate = true;
+        this.previousActiveActionGroup = null;
+        this.updateMessagesQueue = new ArrayList<>();
+        this.receivedSummonerNamesUpdate = false;
 
         // TODO: make it customizable
         TeamNames teamNames = new TeamNames("Blue team", "Red team");
@@ -235,11 +241,16 @@ public class WSClient extends WebSocketClient {
             playerFound = this.playerList.stream().filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId)).findFirst();
             playerFound.ifPresent(player -> player.setSummonerName(idAndName.getDisplayName()));
         }
+        this.playerList.forEach(player -> {
+            if (player.getSummonerName() == null || player.getSummonerName().isEmpty()) {
+                player.setSummonerName("Player " + (player.getPlayerSelection().getCellId() + 1));
+            }
+        });
 
         // Finally we communicate the summoner names to the webapp
         Map<Integer, String> playerMap = new HashMap<>();
         for (Player player : this.playerList) {
-            int cellId = (int) player.getPlayerSelection().getCellId(); // cast is okay since cellId should 0-9
+            int cellId = (int) player.getPlayerSelection().getCellId(); // cast is okay since cellId should be 0-9
             String summonerName = player.getSummonerName();
             playerMap.put(cellId, summonerName);
         }
@@ -247,6 +258,13 @@ public class WSClient extends WebSocketClient {
         JsonAdapter<PlayerNames> adapter = this.moshi.adapter(PlayerNames.class);
         String jsonToWebapp = adapter.toJson(playerNames);
         this.wsServer.broadcast(jsonToWebapp);
+
+        for (SessionMessage msg : this.updateMessagesQueue) {
+            this.handleChampSelectUpdate(msg);
+        }
+        this.updateMessagesQueue.clear();
+        this.logger.debug("Update messages queue is cleared.");
+        this.receivedSummonerNamesUpdate = true;
     }
 
     private void handleChampSelectMessage(String message) {
@@ -273,11 +291,23 @@ public class WSClient extends WebSocketClient {
                 this.handleChampSelectCreate(jsonMessage);
                 break;
             case UPDATE:
-                this.handleChampSelectUpdate(jsonMessage);
+                this.preHandleChampSelectUpdate(jsonMessage);
                 break;
             case DELETE:
                 this.handleChampSelectDelete();
                 break;
+        }
+    }
+
+    private void preHandleChampSelectUpdate(SessionMessage jsonMessage) {
+        if (this.summonerNamesCallId == null) {
+            this.sendUpdateNamesRequest(jsonMessage.getSession());
+            this.updateMessagesQueue.add(jsonMessage);
+        } else if (!this.receivedSummonerNamesUpdate) {
+            this.logger.debug("Added update message to queue while waiting for names.");
+            this.updateMessagesQueue.add(jsonMessage);
+        } else {
+            this.handleChampSelectUpdate(jsonMessage);
         }
     }
 
@@ -286,11 +316,6 @@ public class WSClient extends WebSocketClient {
 
         Session session = message.getSession();
 
-        // If we don't already have names, we request them.
-        if (this.summonerNamesCallId == null) {
-            this.sendUpdateNamesRequest(session);
-        }
-
         // Check if this we're spectating or not. Unused for now.
         if (this.isFirstUpdate) {
             if (session.isSpectating()) {
@@ -298,51 +323,68 @@ public class WSClient extends WebSocketClient {
             } else {
                 this.logger.debug("Not a spectator!");
             }
-
-            this.isFirstUpdate = false;
         }
 
         List<List<Action>> newActions = session.getActions();
         List<List<Action>> oldActions = this.previousSession.getActions();
-        if (!newActions.equals(oldActions)) {
-            this.logger.debug("New action detected!");
 
-            List<Action> actionGroup = newActions.get(newActions.size() - 1);
-            Action latestAction = actionGroup.get(actionGroup.size() - 1);
-
-            String json = null;
-            StringBuilder builder = new StringBuilder(this.playerList.get((int) latestAction.getActorCellId()).getSummonerName());
-            if (latestAction.getType().equals("ban")) {
-                if (!latestAction.isCompleted()) { // Player is banning
-                    builder.append(" is banning... ");
-                    if (latestAction.getChampionId() != 0) { //
-                        builder.append("Currently chosen: ").append(Champion.withId(latestAction.getChampionId()).get().getName());
+        Integer activeActionGroupIndex = this.getActiveActionGroupIndex(newActions);
+        if ((!newActions.equals(oldActions) || this.isFirstUpdate) && activeActionGroupIndex != -1) {
+            // Action group activation
+            if (!activeActionGroupIndex.equals(this.previousActiveActionGroup)) {
+                this.logger.debug("New action group activated!");
+                if (this.previousActiveActionGroup != null) {
+                    // there is at least one newly completed action since that's why we changed active action group
+                    List<Action> newlyCompletedActions = this.getNewlyCompletedActions(oldActions, newActions);
+                    for (Action action : newlyCompletedActions) {
+                        this.handleCompletedAction(action);
                     }
-                } else { // Player has banned
-                    builder.append(" banned ").append(Champion.withId(latestAction.getChampionId()).get().getName());
                 }
-            } else if (latestAction.getType().equals("pick")) {
-                if (!latestAction.isCompleted()) { // Player is picking
-                    builder.append(" is picking... ");
-                    if (latestAction.getChampionId() != 0) {
-                        builder.append("Currently chosen: ").append(Champion.withId(latestAction.getChampionId()).get().getName());
+                // handle incomplete actions
+                for (Action action : newActions.get(activeActionGroupIndex)) {
+                    if (action.getId() >= 100) {
+                        this.logger.debug("Ten bans reveal started.");
+                        continue;
                     }
-                } else { // Player has picked
-                    String championName = Champion.withId(latestAction.getChampionId()).get().getName();
-                    builder.append(" picked ").append(championName);
-
-                    // Broadcast it to webapp
-                    NewPick newPick = new NewPick(championName, latestAction.getActorCellId());
-                    JsonAdapter<NewPick> adapter = this.moshi.adapter(NewPick.class);
-                    json = adapter.toJson(newPick);
+                    StringBuilder builder = new StringBuilder(this.playerList.get((int) action.getActorCellId()).getSummonerName());
+                    if (action.getType().equals("ban")) {
+                        builder.append(" is banning... ");
+                        if (action.getChampionId() != 0) {
+                            builder.append("Currently chosen: ").append(Champion.withId(action.getChampionId()).get().getName());
+                        }
+                    } else if (action.getType().equals("pick")) {
+                        builder.append(" is picking... ");
+                        if (action.getChampionId() != 0) {
+                            builder.append("Currently chosen: ").append(Champion.withId(action.getChampionId()).get().getName());
+                        }
+                    }
+                    this.logger.debug(builder.toString());
                 }
-            }
-            // TODO: handle 10 bans reveal
-
-            this.logger.debug(builder.toString());
-            if (json != null) {
-                this.logger.debug("JSON to be sent to webapp: " + json);
-                this.wsServer.broadcast(json);
+            } else { // Active action group did not change, let's handle action updates
+                List<Action> activeActionGroup = newActions.get(activeActionGroupIndex);
+                List<Action> oldActiveActionGroup = oldActions.get(activeActionGroupIndex);
+                if (activeActionGroup.size() != oldActions.get(activeActionGroupIndex).size()) {
+                    this.logger.warn("newActions action group size is different!! might throw a lot");
+                }
+                for (int i = 0; i < activeActionGroup.size(); i++) {
+                    Action updatedAction = activeActionGroup.get(i);
+                    Action oldAction = oldActiveActionGroup.get(i);
+                    // handle ten bans reveal
+                    if (updatedAction.getId() >= 100) {
+                        continue;
+                    }
+                    if (!updatedAction.equals(oldAction)) {
+                        this.logger.debug("New action update!");
+                        if (updatedAction.getChampionId() != oldAction.getChampionId()) {
+                            this.logger.debug("New champion selected by "
+                                    + this.playerList.get((int) updatedAction.getActorCellId()).getSummonerName()
+                                    + "! " + Champion.withId(updatedAction.getChampionId()).get().getName());
+                        }
+                        if (updatedAction.isCompleted() != oldAction.isCompleted()) { // action just completed
+                            this.handleCompletedAction(updatedAction);
+                        }
+                    }
+                }
             }
         }
 
@@ -376,7 +418,81 @@ public class WSClient extends WebSocketClient {
             this.wsServer.broadcast(jsonToWebapp);
         }
 
+        List<PlayerSelection> newPSelections = new ArrayList<>();
+        newPSelections.addAll(session.getMyTeam());
+        newPSelections.addAll(session.getTheirTeam());
+        if (this.isFirstUpdate) {
+
+        } else {
+            List<PlayerSelection> oldPSelections = new ArrayList<>();
+            oldPSelections.addAll(this.previousSession.getMyTeam());
+            oldPSelections.addAll(this.previousSession.getTheirTeam());
+            for (int i = 0; i < newPSelections.size(); i++) {
+                PlayerSelection newPs = newPSelections.get(i);
+                PlayerSelection oldPs = oldPSelections.get(i);
+            }
+        }
+
+
+        this.previousActiveActionGroup = activeActionGroupIndex;
         this.previousSession = message.getSession();
+        if (this.isFirstUpdate) {
+            this.isFirstUpdate = false;
+        }
+    }
+
+    private void handleCompletedAction(Action action) {
+        if (action.getId() >= 100) {
+            this.logger.debug("Ten bans reveal completed.");
+            return;
+        }
+        StringBuilder builder = new StringBuilder(this.playerList.get((int) action.getActorCellId()).getSummonerName());
+        if (action.getType().equals("ban")) {
+            builder.append(" banned ").append(Champion.withId(action.getChampionId()).get().getName());
+        } else if (action.getType().equals("pick")) {
+            String championName = Champion.withId(action.getChampionId()).get().getName();
+            builder.append(" picked ").append(championName);
+
+            // Broadcast it to webapp
+            NewPick newPick = new NewPick(championName, action.getActorCellId());
+            JsonAdapter<NewPick> adapter = this.moshi.adapter(NewPick.class);
+            String json = adapter.toJson(newPick);
+            this.wsServer.broadcast(json);
+        }
+
+        this.logger.debug(builder.toString());
+    }
+
+    @NotNull
+    private Integer getActiveActionGroupIndex(List<List<Action>> actions) {
+        for (int i = 0; i < actions.size(); i++) {
+            if (!actions.get(i).stream().allMatch(Action::isCompleted)) {
+                return i;
+            }
+        }
+        return actions.size() - 1;
+    }
+
+    @NotNull
+    private List<Action> getNewlyCompletedActions(List<List<Action>> oldActions, List<List<Action>> newActions) {
+        // If they are equal, we just return an empty list
+        if (oldActions.equals(newActions)) {
+            return new ArrayList<>();
+        }
+
+        // Let's use a list with all the actions to make our task much easier
+        List<Action> simpleOldActions = new ArrayList<>(), simpleNewActions = new ArrayList<>();
+        oldActions.forEach(simpleOldActions::addAll);
+        newActions.forEach(simpleNewActions::addAll);
+
+        List<Action> newlyCompletedActions = new ArrayList<>();
+
+        for (int i = 0; i < simpleOldActions.size() && i < simpleNewActions.size(); i++) {
+            if (!simpleOldActions.get(i).isCompleted() && simpleNewActions.get(i).isCompleted()) {
+                newlyCompletedActions.add(simpleNewActions.get(i));
+            }
+        }
+        return newlyCompletedActions;
     }
 
     private void handleChampSelectDelete() {
