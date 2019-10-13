@@ -75,7 +75,8 @@ public class App {
             if (latestVersionFile.createNewFile()) {
                 return true;
             } else {
-                return reader.readLine() == null || !reader.readLine().equals(latestVersion);
+                String s = reader.readLine();
+                return s == null || !s.equals(latestVersion);
             }
         } catch (IOException e) {
             this.logger.error(e.getMessage(), e);
