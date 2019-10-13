@@ -3,7 +3,8 @@
 
 ## Requirements
 - **Windows**
-- JRE 8
+- Java (min. Java 8)
+- A Riot Games API key
 
 ## Building
 - Extract ``./libs/lib/win64.zip`` and ``./web/web.zip`` (select "extract here")
