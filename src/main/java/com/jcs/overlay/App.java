@@ -6,13 +6,18 @@ import com.jcs.overlay.websocket.WSAutoReconnect;
 import com.jcs.overlay.websocket.WSClient;
 import com.jcs.overlay.websocket.WSServer;
 import com.merakianalytics.orianna.Orianna;
-import com.merakianalytics.orianna.types.core.staticdata.Champions;
+import com.merakianalytics.orianna.types.core.staticdata.*;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.HashMap;
@@ -41,6 +46,11 @@ public class App {
         Orianna.loadConfiguration("config.json");
         // Pre-caching
         Champions.get().load();
+        if (this.checkForNewPatch()) {
+            this.logger.info("New patch detected! Updating webapp images.");
+            this.updateWebappImages();
+            this.updateLatestPatchFile();
+        }
 
         this.guiEnabled = guiEnabled;
     }
@@ -56,6 +66,31 @@ public class App {
 
     public static App getApp() {
         return app;
+    }
+
+    private boolean checkForNewPatch() {
+        File latestVersionFile = new File(System.getProperty("user.dir") + "/latestPatch.txt");
+        String latestVersion = Versions.get().get(0);
+        try (BufferedReader reader = new BufferedReader(new FileReader(latestVersionFile))) {
+            if (latestVersionFile.createNewFile()) {
+                return true;
+            } else {
+                return reader.readLine() == null || !reader.readLine().equals(latestVersion);
+            }
+        } catch (IOException e) {
+            this.logger.error(e.getMessage(), e);
+            return true;
+        }
+    }
+
+    private void updateLatestPatchFile() {
+        File latestVersionFile = new File(System.getProperty("user.dir") + "/latestPatch.txt");
+        String latestVersion = Versions.get().get(0);
+        try (FileWriter writer = new FileWriter(latestVersionFile)) {
+            writer.write(latestVersion);
+        } catch (IOException e) {
+            this.logger.info(e.getMessage(), e);
+        }
     }
 
     public WebSocketServer getWsServer() {
@@ -171,6 +206,43 @@ public class App {
 
         this.autoReconnect = null;
         this.autoReconnectThread = null;
+    }
+
+    private void updateWebappImages() {
+        String imgFolderPath = System.getProperty("user.dir") + "/web/img/";
+
+        SummonerSpells spells = SummonerSpells.get();
+        File file;
+        for (SummonerSpell spell : spells) {
+            String spellImgPath = imgFolderPath + spell.getId() + ".png";
+            file = new File(spellImgPath);
+            try {
+                ImageIO.write(spell.getImage().get(), "png", file);
+            } catch (IOException e) {
+                this.logger.error(e.getMessage(), e);
+            }
+        }
+
+        OkHttpClient client = new OkHttpClient();
+        Champions champs = Champions.get();
+        String latestVersion = Versions.get().get(0);
+        Request request;
+        for (Champion champion : champs) {
+            String championKey = champion.getKey();
+            String url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/" + championKey + "/splash-art/centered";
+            request = new Request.Builder().url(url).build();
+            this.logger.info("Making GET request to " + url);
+            try (Response response = client.newCall(request).execute()) {
+                if (response.code() == 200 && response.body() != null) {
+                    InputStream is = response.body().byteStream();
+                    file = new File(imgFolderPath + championKey + ".png");
+                    BufferedImage img = ImageIO.read(is);
+                    ImageIO.write(img, "png", file);
+                }
+            } catch (IOException e) {
+                this.logger.error(e.getMessage(), e);
+            }
+        }
     }
 }
 

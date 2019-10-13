@@ -120,4 +120,7 @@ gradle-app.setting
 !/libs/*.jar
 /web/*
 !/web/web.zip
+
+### Other
 apikey.txt
+latestPatch.txt
