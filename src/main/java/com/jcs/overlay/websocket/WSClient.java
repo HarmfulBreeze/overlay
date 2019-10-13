@@ -6,6 +6,7 @@ import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
 import com.jcs.overlay.websocket.messages.J2W.*;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
+import com.merakianalytics.orianna.types.core.staticdata.SummonerSpell;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
@@ -312,8 +313,6 @@ public class WSClient extends WebSocketClient {
     }
 
     private void handleChampSelectUpdate(SessionMessage message) {
-        this.logger.info("Updated!");
-
         Session session = message.getSession();
 
         // Check if this we're spectating or not. Unused for now.
@@ -332,7 +331,6 @@ public class WSClient extends WebSocketClient {
         if ((!newActions.equals(oldActions) || this.isFirstUpdate) && activeActionGroupIndex != -1) {
             // Action group activation
             if (!activeActionGroupIndex.equals(this.previousActiveActionGroup)) {
-                this.logger.debug("New action group activated!");
                 if (this.previousActiveActionGroup != null) {
                     // there is at least one newly completed action since that's why we changed active action group
                     List<Action> newlyCompletedActions = this.getNewlyCompletedActions(oldActions, newActions);
@@ -374,7 +372,6 @@ public class WSClient extends WebSocketClient {
                         continue;
                     }
                     if (!updatedAction.equals(oldAction)) {
-                        this.logger.debug("New action update!");
                         if (updatedAction.getChampionId() != oldAction.getChampionId()) {
                             this.logger.debug("New champion selected by "
                                     + this.playerList.get((int) updatedAction.getActorCellId()).getSummonerName()
@@ -422,7 +419,23 @@ public class WSClient extends WebSocketClient {
         newPSelections.addAll(session.getMyTeam());
         newPSelections.addAll(session.getTheirTeam());
         if (this.isFirstUpdate) {
+            for (int i = 0; i < newPSelections.size(); i++) {
+                PlayerSelection ps = newPSelections.get(i);
+                Long spell1Id = ps.getSpell1Id();
+                Long spell2Id = ps.getSpell2Id();
+                if (spell1Id != 0 && spell2Id != 0) { // if we don't have info on the enemy team sums
+                    String summonerName = this.playerList.get(i).getSummonerName();
+                    this.logger.debug(summonerName + " has summoner spells "
+                            + SummonerSpell.withId(spell1Id.intValue()).get().getName()
+                            + " and " + SummonerSpell.withId(spell2Id.intValue()).get().getName());
 
+                    SetSummonerSpellsMessage msg1 = new SetSummonerSpellsMessage(i, (byte) 1, spell1Id);
+                    SetSummonerSpellsMessage msg2 = new SetSummonerSpellsMessage(i, (byte) 2, spell2Id);
+                    JsonAdapter<SetSummonerSpellsMessage> adapter = this.moshi.adapter(SetSummonerSpellsMessage.class);
+                    this.wsServer.broadcast(adapter.toJson(msg1));
+                    this.wsServer.broadcast(adapter.toJson(msg2));
+                }
+            }
         } else {
             List<PlayerSelection> oldPSelections = new ArrayList<>();
             oldPSelections.addAll(this.previousSession.getMyTeam());
@@ -430,6 +443,25 @@ public class WSClient extends WebSocketClient {
             for (int i = 0; i < newPSelections.size(); i++) {
                 PlayerSelection newPs = newPSelections.get(i);
                 PlayerSelection oldPs = oldPSelections.get(i);
+                String summonerName = this.playerList.get(i).getSummonerName();
+                Long newSpell1Id = newPs.getSpell1Id();
+                Long newSpell2Id = newPs.getSpell2Id();
+                if (!newSpell1Id.equals(oldPs.getSpell1Id()) && newSpell1Id != 0) {
+                    this.logger.debug(summonerName + " changed summoner spell 1 to "
+                            + SummonerSpell.withId(newSpell1Id.intValue()).get().getName());
+
+                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(i, (byte) 1, newSpell1Id);
+                    JsonAdapter<SetSummonerSpellsMessage> adapter = this.moshi.adapter(SetSummonerSpellsMessage.class);
+                    this.wsServer.broadcast(adapter.toJson(msg));
+                }
+                if (!newSpell2Id.equals(oldPs.getSpell2Id()) && newSpell2Id != 0) {
+                    this.logger.debug(summonerName + " changed summoner spell 2 to "
+                            + SummonerSpell.withId(newSpell2Id.intValue()).get().getName());
+
+                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(i, (byte) 2, newSpell2Id);
+                    JsonAdapter<SetSummonerSpellsMessage> adapter = this.moshi.adapter(SetSummonerSpellsMessage.class);
+                    this.wsServer.broadcast(adapter.toJson(msg));
+                }
             }
         }
 
@@ -450,11 +482,11 @@ public class WSClient extends WebSocketClient {
         if (action.getType().equals("ban")) {
             builder.append(" banned ").append(Champion.withId(action.getChampionId()).get().getName());
         } else if (action.getType().equals("pick")) {
-            String championName = Champion.withId(action.getChampionId()).get().getName();
-            builder.append(" picked ").append(championName);
+            Champion champion = Champion.withId(action.getChampionId()).get();
+            builder.append(" picked ").append(champion.getName());
 
             // Broadcast it to webapp
-            NewPick newPick = new NewPick(championName, action.getActorCellId());
+            NewPick newPick = new NewPick(champion.getKey(), action.getActorCellId());
             JsonAdapter<NewPick> adapter = this.moshi.adapter(NewPick.class);
             String json = adapter.toJson(newPick);
             this.wsServer.broadcast(json);
