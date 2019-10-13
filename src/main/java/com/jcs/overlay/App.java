@@ -71,13 +71,17 @@ public class App {
     private boolean checkForNewPatch() {
         File latestVersionFile = new File(System.getProperty("user.dir") + "/latestPatch.txt");
         String latestVersion = Versions.get().get(0);
-        try (BufferedReader reader = new BufferedReader(new FileReader(latestVersionFile))) {
+        try {
             if (latestVersionFile.createNewFile()) {
                 return true;
-            } else {
-                String s = reader.readLine();
-                return s == null || !s.equals(latestVersion);
             }
+        } catch (IOException e) {
+            this.logger.error(e.getMessage(), e);
+            return true;
+        }
+        try (BufferedReader reader = new BufferedReader(new FileReader(latestVersionFile))) {
+            String s = reader.readLine();
+            return s == null || !s.equals(latestVersion);
         } catch (IOException e) {
             this.logger.error(e.getMessage(), e);
             return true;
