@@ -47,7 +47,7 @@ public class BannedChampions {
      *
      * @param previous Previous {@link BannedChampions} object containing bans to compare against.
      * @return A possibly-null array of integers with two values:<br>
-     * - The team that last banned (1 is blue/myTeam, 2 is red/theirTeam)<br>
+     * - The team that last banned (1 is myTeam, 2 is theirTeam)<br>
      * - The champion ID that was last banned<br>
      * A null return value indicates that no new ban was found.
      */

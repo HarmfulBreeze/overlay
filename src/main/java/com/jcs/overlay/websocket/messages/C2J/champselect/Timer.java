@@ -12,6 +12,10 @@ public class Timer {
     private boolean isInfinite;
     private Long internalNowInEpochMs; // uint64
 
+    public long getAdjustedTimeLeftInPhase() {
+        return this.adjustedTimeLeftInPhase;
+    }
+
     public int getAdjustedTimeLeftInPhaseInSec() {
         return this.adjustedTimeLeftInPhaseInSec;
     }
@@ -60,5 +64,9 @@ public class Timer {
         return Objects.hash(this.timeLeftInPhase, this.adjustedTimeLeftInPhase, this.timeLeftInPhaseInSec,
                 this.adjustedTimeLeftInPhaseInSec, this.totalTimeInPhase, this.phase, this.isInfinite,
                 this.internalNowInEpochMs);
+    }
+
+    public enum Phase {
+        PLANNING, BAN_PICK, FINALIZATION, GAME_STARTING, UNKNOWN
     }
 }

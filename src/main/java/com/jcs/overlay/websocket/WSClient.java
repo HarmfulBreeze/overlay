@@ -42,12 +42,14 @@ public class WSClient extends WebSocketClient {
     private final WebSocketServer wsServer = App.getApp().getWsServer();
 
     private final Moshi moshi = new Moshi.Builder()
-            .add(Phase.class, EnumJsonAdapter.create(Phase.class).withUnknownFallback(Phase.UNKNOWN))
+            .add(Timer.Phase.class, EnumJsonAdapter.create(Timer.Phase.class).withUnknownFallback(Timer.Phase.UNKNOWN))
+            .add(Action.Type.class, EnumJsonAdapter.create(Action.Type.class).withUnknownFallback(Action.Type.UNKNOWN))
             .build();
 
     private Session previousSession = null;
     private boolean isFirstUpdate;
     private boolean receivedSummonerNamesUpdate;
+    private boolean myTeamIsBlueTeam;
     private final List<Player> playerList = new ArrayList<>();
     private Integer previousActiveActionGroup = null;
     private String summonerNamesCallId = null;
@@ -255,8 +257,8 @@ public class WSClient extends WebSocketClient {
             String summonerName = player.getSummonerName();
             playerMap.put(cellId, summonerName);
         }
-        PlayerNames playerNames = new PlayerNames(playerMap);
-        JsonAdapter<PlayerNames> adapter = this.moshi.adapter(PlayerNames.class);
+        PlayerNamesMessage playerNames = new PlayerNamesMessage(playerMap);
+        JsonAdapter<PlayerNamesMessage> adapter = this.moshi.adapter(PlayerNamesMessage.class);
         String jsonToWebapp = adapter.toJson(playerNames);
         this.wsServer.broadcast(jsonToWebapp);
 
@@ -322,6 +324,7 @@ public class WSClient extends WebSocketClient {
             } else {
                 this.logger.debug("Not a spectator!");
             }
+            this.myTeamIsBlueTeam = this.isMyTeamBlueTeam(session);
         }
 
         List<List<Action>> newActions = session.getActions();
@@ -338,25 +341,48 @@ public class WSClient extends WebSocketClient {
                         this.handleCompletedAction(action);
                     }
                 }
-                // handle incomplete actions
+                // handle new active group actions
                 for (Action action : newActions.get(activeActionGroupIndex)) {
-                    if (action.getId() >= 100) {
+                    if (action.getType() == Action.Type.TEN_BANS_REVEAL) {
                         this.logger.debug("Ten bans reveal started.");
                         continue;
                     }
                     StringBuilder builder = new StringBuilder(this.playerList.get((int) action.getActorCellId()).getSummonerName());
-                    if (action.getType().equals("ban")) {
+                    if (action.getType() == Action.Type.BAN) {
                         builder.append(" is banning... ");
+
+                        SetBanPickMessage setBanPickMessage = new SetBanPickMessage(action.getActorCellId(), false, true);
+                        JsonAdapter<SetBanPickMessage> adapter = this.moshi.adapter(SetBanPickMessage.class);
+                        this.wsServer.broadcast(adapter.toJson(setBanPickMessage));
                         if (action.getChampionId() != 0) {
-                            builder.append("Currently chosen: ").append(Champion.withId(action.getChampionId()).get().getName());
+                            Champion champion = Champion.withId(action.getChampionId()).get();
+                            builder.append("Currently chosen: ").append(champion.getName());
+
+                            SetBanIntentMessage banIntentMessage = new SetBanIntentMessage(champion.getKey(), action.getActorCellId());
+                            JsonAdapter<SetBanIntentMessage> banAdapter = this.moshi.adapter(SetBanIntentMessage.class);
+                            this.wsServer.broadcast(banAdapter.toJson(banIntentMessage));
                         }
-                    } else if (action.getType().equals("pick")) {
+                    } else if (action.getType() == Action.Type.PICK) {
                         builder.append(" is picking... ");
+
+                        SetBanPickMessage msg = new SetBanPickMessage(action.getActorCellId(), true, false);
+                        JsonAdapter<SetBanPickMessage> adapter = this.moshi.adapter(SetBanPickMessage.class);
+                        this.wsServer.broadcast(adapter.toJson(msg));
+
                         if (action.getChampionId() != 0) {
-                            builder.append("Currently chosen: ").append(Champion.withId(action.getChampionId()).get().getName());
+                            Champion champion = Champion.withId(action.getChampionId()).get();
+                            builder.append("Currently chosen: ").append(champion.getName());
+
+                            SetPickIntentMessage msg2 = new SetPickIntentMessage(action.getActorCellId(), champion.getKey());
+                            JsonAdapter<SetPickIntentMessage> adapter2 = this.moshi.adapter(SetPickIntentMessage.class);
+                            this.wsServer.broadcast(adapter2.toJson(msg2));
                         }
                     }
-                    this.logger.debug(builder.toString());
+                    if (action.getType() == Action.Type.UNKNOWN) {
+                        this.logger.warn("Received unknown action type!!");
+                    } else {
+                        this.logger.debug(builder.toString());
+                    }
                 }
             } else { // Active action group did not change, let's handle action updates
                 List<Action> activeActionGroup = newActions.get(activeActionGroupIndex);
@@ -368,14 +394,29 @@ public class WSClient extends WebSocketClient {
                     Action updatedAction = activeActionGroup.get(i);
                     Action oldAction = oldActiveActionGroup.get(i);
                     // handle ten bans reveal
-                    if (updatedAction.getId() >= 100) {
+                    if (updatedAction.getType() == Action.Type.TEN_BANS_REVEAL) {
                         continue;
                     }
                     if (!updatedAction.equals(oldAction)) {
                         if (updatedAction.getChampionId() != oldAction.getChampionId()) {
+                            String championName;
+                            String championKey;
+                            if (updatedAction.getChampionId() != 0) {
+                                Champion champion = Champion.withId(updatedAction.getChampionId()).get();
+                                championName = champion.getName();
+                                championKey = champion.getKey();
+                            } else {
+                                championName = "None";
+                                championKey = "None";
+                            }
                             this.logger.debug("New champion selected by "
                                     + this.playerList.get((int) updatedAction.getActorCellId()).getSummonerName()
-                                    + "! " + Champion.withId(updatedAction.getChampionId()).get().getName());
+                                    + "! " + championName);
+                            if (updatedAction.getType() == Action.Type.PICK) {
+                                SetPickIntentMessage msg = new SetPickIntentMessage(updatedAction.getActorCellId(), championKey);
+                                JsonAdapter<SetPickIntentMessage> adapter = this.moshi.adapter(SetPickIntentMessage.class);
+                                this.wsServer.broadcast(adapter.toJson(msg));
+                            }
                         }
                         if (updatedAction.isCompleted() != oldAction.isCompleted()) { // action just completed
                             this.handleCompletedAction(updatedAction);
@@ -389,27 +430,35 @@ public class WSClient extends WebSocketClient {
             int[] newBan = session.getBans().getLatestBan(this.previousSession.getBans());
             if (newBan != null) {
                 StringBuilder builder = new StringBuilder("New banned champion! Team: ");
-                if (newBan[0] == 1) {
+                if ((newBan[0] == 1 && this.myTeamIsBlueTeam) || (newBan[0] == 2 && !this.myTeamIsBlueTeam)) {
                     builder.append("blue, ");
                 } else {
                     builder.append("red, ");
                 }
-                Champion champion = Champion.withId(newBan[1]).get();
-                builder.append("champion: ").append(champion.getName());
+
+                // Hack for no ban
+                String championName;
+                if (newBan[1] != 0) {
+                    championName = Champion.withId(newBan[1]).get().getName();
+                } else {
+                    championName = "None";
+                }
+
+                builder.append("champion: ").append(championName);
                 this.logger.debug(builder.toString());
             }
         }
 
         Timer timer = session.getTimer();
-        Phase newPhase = timer.getPhase();
+        Timer.Phase newPhase = timer.getPhase();
         // TODO: handle unknown phase better
-        if (newPhase != Phase.UNKNOWN) { // If phase is known, we can consider that we have info on the timer
+        if (newPhase != Timer.Phase.UNKNOWN) { // If phase is known, we can consider that we have info on the timer
             if (newPhase != this.previousSession.getTimer().getPhase()) {
                 this.logger.debug("New phase: " + newPhase);
             }
 
             // Update timer in webapp
-            SetTimerMessage setTimerMessage = new SetTimerMessage(timer.getInternalNowInEpochMs(), timer.getTimeLeftInPhase());
+            SetTimerMessage setTimerMessage = new SetTimerMessage(timer.getInternalNowInEpochMs(), timer.getAdjustedTimeLeftInPhase());
             JsonAdapter<SetTimerMessage> adapter = this.moshi.adapter(SetTimerMessage.class);
             String jsonToWebapp = adapter.toJson(setTimerMessage);
             this.wsServer.broadcast(jsonToWebapp);
@@ -429,8 +478,8 @@ public class WSClient extends WebSocketClient {
                             + SummonerSpell.withId(spell1Id.intValue()).get().getName()
                             + " and " + SummonerSpell.withId(spell2Id.intValue()).get().getName());
 
-                    SetSummonerSpellsMessage msg1 = new SetSummonerSpellsMessage(i, (byte) 1, spell1Id);
-                    SetSummonerSpellsMessage msg2 = new SetSummonerSpellsMessage(i, (byte) 2, spell2Id);
+                    SetSummonerSpellsMessage msg1 = new SetSummonerSpellsMessage(ps.getCellId(), (byte) 1, spell1Id);
+                    SetSummonerSpellsMessage msg2 = new SetSummonerSpellsMessage(ps.getCellId(), (byte) 2, spell2Id);
                     JsonAdapter<SetSummonerSpellsMessage> adapter = this.moshi.adapter(SetSummonerSpellsMessage.class);
                     this.wsServer.broadcast(adapter.toJson(msg1));
                     this.wsServer.broadcast(adapter.toJson(msg2));
@@ -450,7 +499,7 @@ public class WSClient extends WebSocketClient {
                     this.logger.debug(summonerName + " changed summoner spell 1 to "
                             + SummonerSpell.withId(newSpell1Id.intValue()).get().getName());
 
-                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(i, (byte) 1, newSpell1Id);
+                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(newPs.getCellId(), (byte) 1, newSpell1Id);
                     JsonAdapter<SetSummonerSpellsMessage> adapter = this.moshi.adapter(SetSummonerSpellsMessage.class);
                     this.wsServer.broadcast(adapter.toJson(msg));
                 }
@@ -458,7 +507,7 @@ public class WSClient extends WebSocketClient {
                     this.logger.debug(summonerName + " changed summoner spell 2 to "
                             + SummonerSpell.withId(newSpell2Id.intValue()).get().getName());
 
-                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(i, (byte) 2, newSpell2Id);
+                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(newPs.getCellId(), (byte) 2, newSpell2Id);
                     JsonAdapter<SetSummonerSpellsMessage> adapter = this.moshi.adapter(SetSummonerSpellsMessage.class);
                     this.wsServer.broadcast(adapter.toJson(msg));
                 }
@@ -474,22 +523,37 @@ public class WSClient extends WebSocketClient {
     }
 
     private void handleCompletedAction(Action action) {
-        if (action.getId() >= 100) {
+        if (action.getType() == Action.Type.TEN_BANS_REVEAL) {
             this.logger.debug("Ten bans reveal completed.");
             return;
         }
         StringBuilder builder = new StringBuilder(this.playerList.get((int) action.getActorCellId()).getSummonerName());
-        if (action.getType().equals("ban")) {
-            builder.append(" banned ").append(Champion.withId(action.getChampionId()).get().getName());
-        } else if (action.getType().equals("pick")) {
-            Champion champion = Champion.withId(action.getChampionId()).get();
-            builder.append(" picked ").append(champion.getName());
 
-            // Broadcast it to webapp
-            NewPick newPick = new NewPick(champion.getKey(), action.getActorCellId());
-            JsonAdapter<NewPick> adapter = this.moshi.adapter(NewPick.class);
-            String json = adapter.toJson(newPick);
-            this.wsServer.broadcast(json);
+        // Hack for no ban
+        String championName, championKey;
+        if (action.getChampionId() != 0) {
+            Champion champion = Champion.withId(action.getChampionId()).get();
+            championName = champion.getName();
+            championKey = champion.getKey();
+        } else {
+            championName = "None";
+            championKey = "None";
+        }
+
+        if (action.getType() == Action.Type.BAN) {
+            builder.append(" banned ").append(championName);
+            SetBanPickMessage msg = new SetBanPickMessage(action.getActorCellId(), false, false);
+            JsonAdapter<SetBanPickMessage> adapter = this.moshi.adapter(SetBanPickMessage.class);
+            this.wsServer.broadcast(adapter.toJson(msg));
+        } else if (action.getType() == Action.Type.PICK) {
+            builder.append(" picked ").append(championName);
+
+            SetPickIntentMessage msg1 = new SetPickIntentMessage(action.getActorCellId(), championKey);
+            JsonAdapter<SetPickIntentMessage> adapter1 = this.moshi.adapter(SetPickIntentMessage.class);
+            this.wsServer.broadcast(adapter1.toJson(msg1));
+            SetBanPickMessage msg2 = new SetBanPickMessage(action.getActorCellId(), false, false);
+            JsonAdapter<SetBanPickMessage> adapter2 = this.moshi.adapter(SetBanPickMessage.class);
+            this.wsServer.broadcast(adapter2.toJson(msg2));
         }
 
         this.logger.debug(builder.toString());
@@ -567,5 +631,9 @@ public class WSClient extends WebSocketClient {
 
         this.send(query);
         this.logger.debug("Sent update name request: " + query);
+    }
+
+    private boolean isMyTeamBlueTeam(Session session) {
+        return session.getMyTeam().get(0).getTeam() == 1;
     }
 }

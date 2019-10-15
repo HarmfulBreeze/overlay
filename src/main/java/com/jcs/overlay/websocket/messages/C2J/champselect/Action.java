@@ -1,12 +1,14 @@
 package com.jcs.overlay.websocket.messages.C2J.champselect;
 
+import com.squareup.moshi.Json;
+
 import java.util.Objects;
 
 public class Action {
     private long id;
     private long actorCellId;
     private int championId;
-    private String type;
+    private Type type;
     private boolean completed;
 
     public long getId() {
@@ -21,7 +23,7 @@ public class Action {
         return this.championId;
     }
 
-    public String getType() {
+    public Type getType() {
         return this.type;
     }
 
@@ -44,5 +46,13 @@ public class Action {
     @Override
     public int hashCode() {
         return Objects.hash(this.id, this.actorCellId, this.championId, this.type, this.completed);
+    }
+
+    public enum Type {
+        @Json(name = "pick") PICK,
+        @Json(name = "vote") VOTE,
+        @Json(name = "ban") BAN,
+        @Json(name = "ten_bans_reveal") TEN_BANS_REVEAL,
+        UNKNOWN
     }
 }
