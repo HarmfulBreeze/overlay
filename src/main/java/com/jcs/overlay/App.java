@@ -154,6 +154,7 @@ public class App {
         }
 
         this.logger.info("Successfully shut down. Bye!");
+        System.exit(0);
     }
 
     public LockfileMonitor getLockfileMonitor() {
