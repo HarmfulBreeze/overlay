@@ -6,8 +6,8 @@ public class SetSummonerSpellsMessage {
     private final byte spellSlot;
     private final Long spellId;
 
-    public SetSummonerSpellsMessage(long cellId, byte spellSlot, Long spellId) {
-        this.cellId = cellId;
+    public SetSummonerSpellsMessage(long adjustedCellId, byte spellSlot, Long spellId) {
+        this.cellId = adjustedCellId;
         this.spellSlot = spellSlot;
         this.spellId = spellId;
     }

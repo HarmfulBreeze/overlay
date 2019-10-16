@@ -2,12 +2,12 @@ package com.jcs.overlay.websocket.messages.J2W;
 
 public class SetBanPickMessage {
     private final String messageType = "SetBanPick";
-    private final short cellId;
+    private final long cellId;
     private final boolean isPicking;
     private final boolean isBanning;
 
-    public SetBanPickMessage(long cellId, boolean isPicking, boolean isBanning) {
-        this.cellId = (short) cellId;
+    public SetBanPickMessage(long adjustedCellId, boolean isPicking, boolean isBanning) {
+        this.cellId = adjustedCellId;
         this.isPicking = isPicking;
         this.isBanning = isBanning;
     }
