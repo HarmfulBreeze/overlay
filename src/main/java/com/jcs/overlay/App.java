@@ -228,13 +228,23 @@ public class App {
             }
         }
 
-        OkHttpClient client = new OkHttpClient();
         Champions champs = Champions.get();
+        for (Champion champion : champs) {
+            String champIconImagePath = imgFolderPath + "icon_" + champion.getKey() + ".png";
+            file = new File(champIconImagePath);
+            try {
+                ImageIO.write(champion.getImage().get(), "png", file);
+            } catch (IOException e) {
+                this.logger.error(e.getMessage(), e);
+            }
+        }
+        OkHttpClient client = new OkHttpClient();
         String latestVersion = Versions.get().get(0);
         Request request;
+        String url;
         for (Champion champion : champs) {
             String championKey = champion.getKey();
-            String url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/" + championKey + "/splash-art/centered";
+            url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/" + championKey + "/splash-art/centered";
             request = new Request.Builder().url(url).build();
             this.logger.info("Making GET request to " + url);
             try (Response response = client.newCall(request).execute()) {
@@ -247,6 +257,20 @@ public class App {
             } catch (IOException e) {
                 this.logger.error(e.getMessage(), e);
             }
+        }
+
+        url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/generic/square";
+        request = new Request.Builder().url(url).build();
+        this.logger.info("Making GET request to " + url);
+        try (Response response = client.newCall(request).execute()) {
+            if (response.code() == 200 && response.body() != null) {
+                InputStream is = response.body().byteStream();
+                file = new File(imgFolderPath + "icon_None.png");
+                BufferedImage img = ImageIO.read(is);
+                ImageIO.write(img, "png", file);
+            }
+        } catch (IOException e) {
+            this.logger.error(e.getMessage(), e);
         }
     }
 }

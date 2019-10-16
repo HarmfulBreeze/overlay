@@ -54,7 +54,8 @@ public class WSClient extends WebSocketClient {
     private Integer previousActiveActionGroup = null;
     private String summonerNamesCallId = null;
     private String chatCallId = null;
-    private List<SessionMessage> updateMessagesQueue;
+    private final List<SessionMessage> updateMessagesQueue = new ArrayList<>();
+    private Bans bans;
 
     // Accept self-signed certificate. (if anyone has a better solution, please PR)
     public WSClient(URI uri, Map<String, String> httpHeaders) {
@@ -205,8 +206,10 @@ public class WSClient extends WebSocketClient {
         this.previousSession = message.getSession();
         this.isFirstUpdate = true;
         this.previousActiveActionGroup = null;
-        this.updateMessagesQueue = new ArrayList<>();
+        this.playerList.clear();
+        this.updateMessagesQueue.clear();
         this.receivedSummonerNamesUpdate = false;
+        this.bans = new Bans();
 
         // TODO: make it customizable
         TeamNames teamNames = new TeamNames("Blue team", "Red team");
@@ -426,29 +429,6 @@ public class WSClient extends WebSocketClient {
             }
         }
 
-        if (!session.getBans().equals(this.previousSession.getBans())) {
-            int[] newBan = session.getBans().getLatestBan(this.previousSession.getBans());
-            if (newBan != null) {
-                StringBuilder builder = new StringBuilder("New banned champion! Team: ");
-                if ((newBan[0] == 1 && this.myTeamIsBlueTeam) || (newBan[0] == 2 && !this.myTeamIsBlueTeam)) {
-                    builder.append("blue, ");
-                } else {
-                    builder.append("red, ");
-                }
-
-                // Hack for no ban
-                String championName;
-                if (newBan[1] != 0) {
-                    championName = Champion.withId(newBan[1]).get().getName();
-                } else {
-                    championName = "None";
-                }
-
-                builder.append("champion: ").append(championName);
-                this.logger.debug(builder.toString());
-            }
-        }
-
         Timer timer = session.getTimer();
         Timer.Phase newPhase = timer.getPhase();
         // TODO: handle unknown phase better
@@ -551,9 +531,17 @@ public class WSClient extends WebSocketClient {
 
         if (action.getType() == Action.Type.BAN) {
             builder.append(" banned ").append(championName);
-            SetBanPickMessage msg = new SetBanPickMessage(this.getAdjustedCellId(actorCellId), false, false);
-            JsonAdapter<SetBanPickMessage> adapter = this.moshi.adapter(SetBanPickMessage.class);
-            this.wsServer.broadcast(adapter.toJson(msg));
+
+            int teamId = this.getTeamIdFromCellId(actorCellId);
+            if (this.bans.canAdd(teamId)) {
+                int banId = this.bans.addBan(teamId, championKey);
+                NewBanMessage msg1 = new NewBanMessage(championKey, banId);
+                JsonAdapter<NewBanMessage> adapter1 = this.moshi.adapter(NewBanMessage.class);
+                this.wsServer.broadcast(adapter1.toJson(msg1));
+            }
+            SetBanPickMessage msg2 = new SetBanPickMessage(this.getAdjustedCellId(actorCellId), false, false);
+            JsonAdapter<SetBanPickMessage> adapter2 = this.moshi.adapter(SetBanPickMessage.class);
+            this.wsServer.broadcast(adapter2.toJson(msg2));
         } else if (action.getType() == Action.Type.PICK) {
             builder.append(" picked ").append(championName);
 
@@ -650,8 +638,17 @@ public class WSClient extends WebSocketClient {
             if (teamId == 2) {
                 player.setAdjustedCellId(c);
                 c++;
+            } else {
+                player.setAdjustedCellId(player.getPlayerSelection().getCellId());
             }
         }
+    }
+
+    private int getTeamIdFromCellId(long cellId) {
+        Optional<Player> opt = this.playerList.stream()
+                .filter(player -> player.getPlayerSelection().getCellId() == cellId)
+                .findFirst();
+        return opt.map(player -> player.getPlayerSelection().getTeam()).orElse(-1);
     }
 
     private boolean isMyTeamBlueTeam(Session session) {
