@@ -7,8 +7,8 @@
 - A Riot Games API key
 
 ## Building
-- Extract ``./libs/lib/win64.zip`` and ``./web/web.zip`` (select "extract here")
-- Run ``build.bat``
+- Extract ``./libs/lib/win32.zip`` -32 bits-, ``./libs/lib/win64.zip`` -64 bits- and ``./web/web.zip``. Select "extract here".
+- Run ``build_win32.bat`` or ``build_win64.bat``
 
 ## Running the program
-- Execute ``run.bat``
+- Execute ``run_win32.bat`` or ``run_win64.bat``

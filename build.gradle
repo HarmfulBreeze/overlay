@@ -1,7 +1,12 @@
 plugins {
     id 'application'
     id 'java'
-    id "com.github.johnrengelman.shadow" version "4.0.4"
+    id "com.github.johnrengelman.shadow" version "5.1.0"
+}
+
+configurations {
+    compileClasspath.extendsFrom(implementationW32)
+    compileClasspath.extendsFrom(implementationW64)
 }
 
 group 'com.jcs'
@@ -38,9 +43,6 @@ repositories {
     maven { url "https://oss.sonatype.org/content/repositories/releases/" }
 }
 
-project.ext.lwjglVersion = "3.2.2"
-project.ext.lwjglNatives = "natives-windows"
-
 dependencies {
     implementation group: 'org.java-websocket', name: 'Java-WebSocket', version: '1.4.0'
     implementation group: 'net.java.dev.jna', name: 'jna-platform', version: '5.3.1'
@@ -54,11 +56,14 @@ dependencies {
     implementation group: 'com.squareup.moshi', name: 'moshi-adapters', version: '1.8.0'
 
     // CEF (from JAR)
-    implementation name: "jcef"
     implementation name: "jogl-all"
     implementation name: "gluegen-rt"
-    implementation name: "gluegen-rt-natives-windows-amd64"
-    implementation name: "jogl-all-natives-windows-amd64"
+    implementationW32 name: "jcef-win32"
+    implementationW32 name: "gluegen-rt-natives-windows-i586"
+    implementationW32 name: "jogl-all-natives-windows-i586"
+    implementationW64 name: "jcef-win64"
+    implementationW64 name: "gluegen-rt-natives-windows-amd64"
+    implementationW64 name: "jogl-all-natives-windows-amd64"
 
     // SLF4J
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.8.0-beta4'
@@ -70,4 +75,24 @@ dependencies {
     testImplementation group: 'junit', name: 'junit', version: '4.12'
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.4.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.4.2'
+}
+
+task shadowJarW32 {
+    doFirst {
+        shadowJar {
+            archiveClassifier.set('win32')
+            configurations = [project.configurations.runtimeClasspath, project.configurations.implementationW32]
+        }
+    }
+    finalizedBy(shadowJar)
+}
+
+task shadowJarW64 {
+    doFirst {
+        shadowJar {
+            archiveClassifier.set('win64')
+            configurations = [project.configurations.runtimeClasspath, project.configurations.implementationW64]
+        }
+    }
+    finalizedBy(shadowJar)
 }
