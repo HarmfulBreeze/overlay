@@ -531,7 +531,7 @@ public class WSClient extends WebSocketClient {
 
             int teamId = this.getTeamIdFromCellId(actorCellId);
             if (this.bans.canAdd(teamId)) {
-                int banId = this.bans.addBan(teamId, championKey);
+                int banId = this.bans.addBan(teamId, this.getAdjustedCellId(actorCellId), championKey);
                 NewBanMessage msg1 = new NewBanMessage(championKey, banId);
                 JsonAdapter<NewBanMessage> adapter1 = this.moshi.adapter(NewBanMessage.class);
                 this.wsServer.broadcast(adapter1.toJson(msg1));

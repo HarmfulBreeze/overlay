@@ -4,6 +4,7 @@ import com.merakianalytics.orianna.types.core.staticdata.Champion;
 
 public class Bans {
     private final String[] banArray;
+    private final int[] playerOffset;
     private int blueTeamOffset;
     private int redTeamOffset;
 
@@ -13,30 +14,36 @@ public class Bans {
 
     public Bans(int size) {
         this.banArray = new String[size];
+        this.playerOffset = new int[size];
         this.blueTeamOffset = 0;
         this.redTeamOffset = size / 2;
     }
 
+    public int addBan(int teamId, long adjustedCellId, String championKey) {
+        return this.addBan(teamId, (int) adjustedCellId, championKey);
+    }
+
     /**
-     * Adds a ban to the array.
-     *
-     * @param teamId      1 = blue, 2 = red
-     * @param championKey The {@link Champion} key to be added.
+     * Adds a ban to the array. You should first check if it can be added with {@link Bans#canAdd(int)}.
+     * @param teamId         1 = blue, 2 = red
+     * @param adjustedCellId The adjustedCellId of the banning actor.
+     * @param championKey    The {@link Champion} key to be added.
      * @return The array index at which the {@link Champion} key was added.
+     * @throws IndexOutOfBoundsException If the array is already full.
      */
-    public int addBan(int teamId, String championKey) {
+    public int addBan(int teamId, int adjustedCellId, String championKey) {
         if (!this.canAdd(teamId)) {
             throw new IndexOutOfBoundsException("Ban array is full!");
         }
+        int banId = adjustedCellId + this.playerOffset[adjustedCellId];
+        this.banArray[banId] = championKey;
+        this.playerOffset[adjustedCellId]++;
         if (teamId == 1) {
-            this.banArray[this.blueTeamOffset] = championKey;
             this.blueTeamOffset++;
-            return this.blueTeamOffset - 1;
         } else {
-            this.banArray[this.redTeamOffset] = championKey;
             this.redTeamOffset++;
-            return this.redTeamOffset - 1;
         }
+        return banId;
     }
 
     /**
