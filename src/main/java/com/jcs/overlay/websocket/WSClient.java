@@ -36,6 +36,8 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.jcs.overlay.websocket.messages.C2J.champselect.Action.ActionType.*;
+
 public class WSClient extends WebSocketClient {
     private final Logger logger = LoggerFactory.getLogger(WSClient.class);
 
@@ -43,18 +45,17 @@ public class WSClient extends WebSocketClient {
 
     private final Moshi moshi = new Moshi.Builder()
             .add(Timer.Phase.class, EnumJsonAdapter.create(Timer.Phase.class).withUnknownFallback(Timer.Phase.UNKNOWN))
-            .add(Action.Type.class, EnumJsonAdapter.create(Action.Type.class).withUnknownFallback(Action.Type.UNKNOWN))
+            .add(Action.ActionType.class, EnumJsonAdapter.create(Action.ActionType.class).withUnknownFallback(UNKNOWN))
             .build();
-
+    private final List<Player> playerList = new ArrayList<>();
+    private final List<SessionMessage> updateMessagesQueue = new ArrayList<>();
     private Session previousSession = null;
     private boolean isFirstUpdate;
     private boolean receivedSummonerNamesUpdate;
     private boolean myTeamIsBlueTeam;
-    private final List<Player> playerList = new ArrayList<>();
-    private Integer previousActiveActionGroup = null;
+    private int previousActiveActionGroup = -1;
     private String summonerNamesCallId = null;
     private String chatCallId = null;
-    private final List<SessionMessage> updateMessagesQueue = new ArrayList<>();
     private Bans bans;
 
     // Accept self-signed certificate. (if anyone has a better solution, please PR)
@@ -142,10 +143,6 @@ public class WSClient extends WebSocketClient {
 
     @Override
     public void onOpen(ServerHandshake handshakedata) {
-//        this.send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
-//        this.send("[5, \"OnJsonApiEvent\"]");
-//        this.send("[2, \"12345\", \"/lol-summoner/v2/summoner-names\", [33968983, 33968984]]");
-//        this.send("[2, \"12345\", \"GetLolChatV1Session\"]");
         this.logger.info("Connected to the client!");
         this.requestChatSessionState();
     }
@@ -205,7 +202,7 @@ public class WSClient extends WebSocketClient {
         this.logger.info("Champion select has started!");
         this.previousSession = message.getSession();
         this.isFirstUpdate = true;
-        this.previousActiveActionGroup = null;
+        this.previousActiveActionGroup = -1;
         this.playerList.clear();
         this.updateMessagesQueue.clear();
         this.receivedSummonerNamesUpdate = false;
@@ -330,14 +327,14 @@ public class WSClient extends WebSocketClient {
 
         this.updatePlayerList(session);
 
-        List<List<Action>> newActions = session.getActions();
         List<List<Action>> oldActions = this.previousSession.getActions();
+        List<List<Action>> newActions = session.getActions();
 
-        Integer activeActionGroupIndex = this.getActiveActionGroupIndex(newActions);
+        int activeActionGroupIndex = this.getActiveActionGroupIndex(newActions);
         if ((!newActions.equals(oldActions) || this.isFirstUpdate) && activeActionGroupIndex != -1) {
             // Action group activation
-            if (!activeActionGroupIndex.equals(this.previousActiveActionGroup)) {
-                if (this.previousActiveActionGroup != null) {
+            if (activeActionGroupIndex != this.previousActiveActionGroup) {
+                if (this.previousActiveActionGroup != -1) {
                     // there is at least one newly completed action since that's why we changed active action group
                     List<Action> newlyCompletedActions = this.getNewlyCompletedActions(oldActions, newActions);
                     for (Action action : newlyCompletedActions) {
@@ -346,12 +343,12 @@ public class WSClient extends WebSocketClient {
                 }
                 // handle new active group actions
                 for (Action action : newActions.get(activeActionGroupIndex)) {
-                    if (action.getType() == Action.Type.TEN_BANS_REVEAL) {
+                    if (action.getType() == TEN_BANS_REVEAL) {
                         this.logger.debug("Ten bans reveal started.");
                         continue;
                     }
                     StringBuilder builder = new StringBuilder(this.playerList.get((int) action.getActorCellId()).getSummonerName());
-                    if (action.getType() == Action.Type.BAN) {
+                    if (action.getType() == BAN) {
                         builder.append(" is banning... ");
 
                         SetBanPickMessage setBanPickMessage = new SetBanPickMessage(this.getAdjustedCellId(action.getActorCellId()), false, true);
@@ -365,7 +362,7 @@ public class WSClient extends WebSocketClient {
                             JsonAdapter<SetBanIntentMessage> banAdapter = this.moshi.adapter(SetBanIntentMessage.class);
                             this.wsServer.broadcast(banAdapter.toJson(banIntentMessage));
                         }
-                    } else if (action.getType() == Action.Type.PICK) {
+                    } else if (action.getType() == PICK) {
                         builder.append(" is picking... ");
 
                         SetBanPickMessage msg = new SetBanPickMessage(this.getAdjustedCellId(action.getActorCellId()), true, false);
@@ -381,7 +378,7 @@ public class WSClient extends WebSocketClient {
                             this.wsServer.broadcast(adapter2.toJson(msg2));
                         }
                     }
-                    if (action.getType() == Action.Type.UNKNOWN) {
+                    if (action.getType() == UNKNOWN) {
                         this.logger.warn("Received unknown action type!!");
                     } else {
                         this.logger.debug(builder.toString());
@@ -397,7 +394,7 @@ public class WSClient extends WebSocketClient {
                     Action updatedAction = activeActionGroup.get(i);
                     Action oldAction = oldActiveActionGroup.get(i);
                     // handle ten bans reveal
-                    if (updatedAction.getType() == Action.Type.TEN_BANS_REVEAL) {
+                    if (updatedAction.getType() == TEN_BANS_REVEAL) {
                         continue;
                     }
                     if (!updatedAction.equals(oldAction)) {
@@ -415,7 +412,7 @@ public class WSClient extends WebSocketClient {
                             this.logger.debug("New champion selected by "
                                     + this.playerList.get((int) updatedAction.getActorCellId()).getSummonerName()
                                     + "! " + championName);
-                            if (updatedAction.getType() == Action.Type.PICK) {
+                            if (updatedAction.getType() == PICK) {
                                 SetPickIntentMessage msg = new SetPickIntentMessage(this.getAdjustedCellId(updatedAction.getActorCellId()), championKey);
                                 JsonAdapter<SetPickIntentMessage> adapter = this.moshi.adapter(SetPickIntentMessage.class);
                                 this.wsServer.broadcast(adapter.toJson(msg));
@@ -511,7 +508,7 @@ public class WSClient extends WebSocketClient {
     }
 
     private void handleCompletedAction(Action action) {
-        if (action.getType() == Action.Type.TEN_BANS_REVEAL) {
+        if (action.getType() == TEN_BANS_REVEAL) {
             this.logger.debug("Ten bans reveal completed.");
             return;
         }
@@ -529,7 +526,7 @@ public class WSClient extends WebSocketClient {
             championKey = "None";
         }
 
-        if (action.getType() == Action.Type.BAN) {
+        if (action.getType() == BAN) {
             builder.append(" banned ").append(championName);
 
             int teamId = this.getTeamIdFromCellId(actorCellId);
@@ -542,7 +539,7 @@ public class WSClient extends WebSocketClient {
             SetBanPickMessage msg2 = new SetBanPickMessage(this.getAdjustedCellId(actorCellId), false, false);
             JsonAdapter<SetBanPickMessage> adapter2 = this.moshi.adapter(SetBanPickMessage.class);
             this.wsServer.broadcast(adapter2.toJson(msg2));
-        } else if (action.getType() == Action.Type.PICK) {
+        } else if (action.getType() == PICK) {
             builder.append(" picked ").append(championName);
 
             SetPickIntentMessage msg1 = new SetPickIntentMessage(this.getAdjustedCellId(actorCellId), championKey);
@@ -556,8 +553,50 @@ public class WSClient extends WebSocketClient {
         this.logger.debug(builder.toString());
     }
 
-    @NotNull
-    private Integer getActiveActionGroupIndex(List<List<Action>> actions) {
+    /**
+     * Returns the active action group index.<br>
+     * For example, let's see these actions from a matchmade 5v5 draft:
+     * <pre>
+     * [
+     *     [
+     *         {
+     *             "actorCellId": 0,
+     *             "championId": 0,
+     *             "completed": true,
+     *             "id": 0,
+     *             "type": "ban"
+     *         },
+     *         (...)
+     *         {
+     *             "actorCellId": 9,
+     *             "championId": 0,
+     *             "completed": false,
+     *             "id": 9,
+     *             "type": "ban"
+     *         }
+     *     ],
+     *     [
+     *         {
+     *             "actorCellId": -1,
+     *             "championId": 0,
+     *             "completed": false,
+     *             "id": 100,
+     *             "type": "ten_bans_reveal"
+     *         }
+     *     ]
+     * ]</pre>
+     * Here you can see that not all actions from the first group are marked as complete which means that not all bans
+     * have been cast.<br>
+     * Therefore, the active action group is the first one (the ban group) and its index is 0,
+     * so the method will return 0.
+     *
+     * @param actions Actions to get the index from. (can be retrieved with {@link Session#getActions()})
+     * @return The index of the active action group, or -1 if the provided actions are null or empty.
+     */
+    private int getActiveActionGroupIndex(List<List<Action>> actions) {
+        if (actions == null || actions.isEmpty()) {
+            return -1;
+        }
         for (int i = 0; i < actions.size(); i++) {
             if (!actions.get(i).stream().allMatch(Action::isCompleted)) {
                 return i;

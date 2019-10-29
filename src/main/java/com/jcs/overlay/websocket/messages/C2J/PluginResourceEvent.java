@@ -1,6 +1,11 @@
 package com.jcs.overlay.websocket.messages.C2J;
 
+import com.squareup.moshi.Json;
+
 public class PluginResourceEvent {
+    private String uri;
+    private PluginResourceEventType eventType;
+
     public String getUri() {
         return this.uri;
     }
@@ -9,7 +14,10 @@ public class PluginResourceEvent {
         return this.eventType;
     }
 
-    private String uri;
-    private PluginResourceEventType eventType;
+    public enum PluginResourceEventType {
+        @Json(name = "Create") CREATE,
+        @Json(name = "Update") UPDATE,
+        @Json(name = "Delete") DELETE
+    }
 }
 

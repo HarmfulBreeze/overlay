@@ -84,7 +84,8 @@ task shadowJarW32 {
             configurations = [project.configurations.runtimeClasspath, project.configurations.implementationW32]
         }
     }
-    finalizedBy(shadowJar)
+    group 'Shadow'
+    finalizedBy shadowJar
 }
 
 task shadowJarW64 {
@@ -94,5 +95,6 @@ task shadowJarW64 {
             configurations = [project.configurations.runtimeClasspath, project.configurations.implementationW64]
         }
     }
-    finalizedBy(shadowJar)
+    group 'Shadow'
+    finalizedBy shadowJar
 }

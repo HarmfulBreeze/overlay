@@ -115,6 +115,8 @@ gradle-app.setting
 /.tgitconfig
 
 ### For CEF
+/libs/lib/win32
+!/libs/lib/win32.zip
 /libs/lib/win64
 !/libs/lib/win64.zip
 !/libs/*.jar

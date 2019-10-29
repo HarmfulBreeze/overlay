@@ -8,7 +8,7 @@ public class Action {
     private long id;
     private long actorCellId;
     private int championId;
-    private Type type;
+    private ActionType type;
     private boolean completed;
 
     public long getId() {
@@ -23,7 +23,7 @@ public class Action {
         return this.championId;
     }
 
-    public Type getType() {
+    public ActionType getType() {
         return this.type;
     }
 
@@ -48,7 +48,7 @@ public class Action {
         return Objects.hash(this.id, this.actorCellId, this.championId, this.type, this.completed);
     }
 
-    public enum Type {
+    public enum ActionType {
         @Json(name = "pick") PICK,
         @Json(name = "vote") VOTE,
         @Json(name = "ban") BAN,

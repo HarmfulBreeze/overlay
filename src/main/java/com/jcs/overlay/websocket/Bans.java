@@ -3,7 +3,7 @@ package com.jcs.overlay.websocket;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
 
 public class Bans {
-    private String[] banArray;
+    private final String[] banArray;
     private int blueTeamOffset;
     private int redTeamOffset;
 
