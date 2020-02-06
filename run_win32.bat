@@ -12,4 +12,4 @@ set /p RIOT_API_KEY="Riot API key: "
 echo %RIOT_API_KEY%>apikey.txt
 
 :start
-java -jar build\libs\overlay-1.0-SNAPSHOT-win32.jar
+java -jar build\libs\overlay-1.0.2-SNAPSHOT-win32.jar

@@ -14,6 +14,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainFrame extends JFrame {
     private static final long serialVersionUID = -5570653778104813836L;
@@ -39,7 +41,9 @@ public class MainFrame extends JFrame {
         //     required native libraries, initializes CEF accordingly, starts a
         //     background task to handle CEF's message loop and takes care of
         //     shutting down CEF after disposing it.
-        CefApp.addAppHandler(new CefAppHandlerAdapter(null) {
+        List<String> cliSwitches = new ArrayList<>();
+        cliSwitches.add("--disable-gpu-compositing");
+        CefApp.addAppHandler(new CefAppHandlerAdapter(cliSwitches.toArray(new String[0])) {
             @Override
             public void stateHasChanged(CefAppState state) {
                 // Shutdown the app if the native CEF part is terminated
