@@ -155,7 +155,7 @@ public class WSClient extends WebSocketClient {
 
         if (message.startsWith("[3,\"" + this.summonerNamesCallId + "\"")) {
             this.handleSummonerNamesUpdate(message);
-        } else if (message.startsWith("[3,\"" + this.chatCallId + "\"")) {
+        } else if (message.contains("\"" + this.chatCallId + "\"")) {
             this.handleChatSessionMessage(message);
         } else if (message.startsWith("[8,\"OnJsonApiEvent_lol-champ-select_v1_session\"")) {
             this.handleChampSelectMessage(message);
@@ -172,9 +172,11 @@ public class WSClient extends WebSocketClient {
 
     private void handleChatSessionMessage(String message) {
         String json = WSClient.getDataFromWampMessage(message);
-        if (json == null) {
+        // If there is no JSON data or we get a CALLERROR
+        if (json == null || message.startsWith("[4")) {
             // chat plugin isn't loaded, most likely
             try {
+                this.logger.debug("Waiting for chat plugin to load...");
                 Thread.sleep(5000);
             } catch (InterruptedException e) {
                 this.logger.error(e.getMessage(), e);
@@ -190,6 +192,7 @@ public class WSClient extends WebSocketClient {
         } else {
             // chat plugin probably still not loaded
             try {
+                this.logger.debug("Waiting for chat plugin to load... (part 2)");
                 Thread.sleep(5000);
             } catch (InterruptedException e) {
                 this.logger.error(e.getMessage(), e);
