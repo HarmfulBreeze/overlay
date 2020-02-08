@@ -51,7 +51,7 @@ public class WSAutoReconnect implements Runnable {
             }
         }
         if (stopCount == 11) {
-            this.logger.error("Connection lost, we will not try to reconnect anymore.");
+            this.logger.error("Connection lost, we will not try to reconnect anymore. Please restart the client.");
         }
     }
 }
