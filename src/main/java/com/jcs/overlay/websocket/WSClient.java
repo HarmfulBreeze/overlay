@@ -39,7 +39,7 @@ import java.util.regex.Pattern;
 import static com.jcs.overlay.websocket.messages.C2J.champselect.Action.ActionType.*;
 
 public class WSClient extends WebSocketClient {
-    private final Logger logger = LoggerFactory.getLogger(WSClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
 
     private final WebSocketServer wsServer = App.getApp().getWsServer();
 
@@ -80,7 +80,7 @@ public class WSClient extends WebSocketClient {
         try {
             sslContext = SSLContext.getInstance("TLS");
         } catch (NoSuchAlgorithmException e) {
-            this.logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
             Thread.currentThread().interrupt();
             return;
         }
@@ -88,7 +88,7 @@ public class WSClient extends WebSocketClient {
         try {
             sslContext.init(null, trustAllCerts, null);
         } catch (KeyManagementException e) {
-            this.logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
         }
         SSLSocketFactory factory = sslContext.getSocketFactory();
 
@@ -125,9 +125,9 @@ public class WSClient extends WebSocketClient {
     public void onClose(int code, String reason, boolean remote) {
         if (code != CloseFrame.NEVER_CONNECTED && code != CloseFrame.NORMAL) {
             if (code == CloseFrame.ABNORMAL_CLOSE) { // Code sent by the League Client when closing
-                this.logger.info("Disconnected from client.");
+                LOGGER.info("Disconnected from client.");
             } else {
-                this.logger.error(String.format("Connection closed, code %d\nReason: %s\nInitiated by remote: %b\n", code, reason, remote));
+                LOGGER.error(String.format("Connection closed, code %d\nReason: %s\nInitiated by remote: %b\n", code, reason, remote));
             }
             this.handleChampSelectDelete();
         }
@@ -136,15 +136,15 @@ public class WSClient extends WebSocketClient {
     @Override
     public void onError(Exception ex) {
         if (ex instanceof ConnectException) {
-            this.logger.error("Connection error: " + ex.getMessage());
+            LOGGER.error("Connection error: " + ex.getMessage());
         } else {
-            this.logger.error("Exception caught: ", ex);
+            LOGGER.error("Exception caught: ", ex);
         }
     }
 
     @Override
     public void onOpen(ServerHandshake handshakedata) {
-        this.logger.info("Connected to the client!");
+        LOGGER.info("Connected to the client!");
         this.requestChatSessionState();
     }
 
@@ -161,7 +161,7 @@ public class WSClient extends WebSocketClient {
         } else if (message.startsWith("[8,\"OnJsonApiEvent_lol-champ-select_v1_session\"")) {
             this.handleChampSelectMessage(message);
         } else {
-            this.logger.warn("Unknown message received: " + message);
+            LOGGER.warn("Unknown message received: " + message);
         }
     }
 
@@ -177,10 +177,10 @@ public class WSClient extends WebSocketClient {
         if (json == null || message.startsWith("[4")) {
             // chat plugin isn't loaded, most likely
             try {
-                this.logger.debug("Waiting for chat plugin to load...");
+                LOGGER.debug("Waiting for chat plugin to load...");
                 Thread.sleep(5000);
             } catch (InterruptedException e) {
-                this.logger.error(e.getMessage(), e);
+                LOGGER.error(e.getMessage(), e);
             }
             this.requestChatSessionState(); // we request the chat state again
             return;
@@ -189,21 +189,21 @@ public class WSClient extends WebSocketClient {
         String sessionState = WSClient.getSessionStateFromJson(json);
         if (sessionState != null && (sessionState.equals("loaded") || sessionState.equals("connected"))) {
             this.send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
-            this.logger.debug("Subscribed to champ select events.");
+            LOGGER.debug("Subscribed to champ select events.");
         } else {
             // chat plugin probably still not loaded
             try {
-                this.logger.debug("Waiting for chat plugin to load... (part 2)");
+                LOGGER.debug("Waiting for chat plugin to load... (part 2)");
                 Thread.sleep(5000);
             } catch (InterruptedException e) {
-                this.logger.error(e.getMessage(), e);
+                LOGGER.error(e.getMessage(), e);
             }
             this.requestChatSessionState();
         }
     }
 
     private void handleChampSelectCreate(SessionMessage message) {
-        this.logger.info("Champion select has started!");
+        LOGGER.info("Champion select has started!");
         this.previousSession = message.getSession();
         this.isFirstUpdate = true;
         this.previousActiveActionGroup = -1;
@@ -223,7 +223,7 @@ public class WSClient extends WebSocketClient {
         if (json == null) {
             return;
         }
-        this.logger.debug("Received summoner names message!");
+        LOGGER.debug("Received summoner names message!");
 
         // Deserialize JSON
         Type type = Types.newParameterizedType(List.class, SummonerIdAndName.class);
@@ -235,7 +235,7 @@ public class WSClient extends WebSocketClient {
                 throw new JsonDataException("summonerIdsAndNames is null or empty!");
             }
         } catch (IOException e) {
-            this.logger.error(e.getMessage(), e);
+            LOGGER.error(e.getMessage(), e);
             return;
         }
 
@@ -264,7 +264,7 @@ public class WSClient extends WebSocketClient {
             this.handleChampSelectUpdate(msg);
         }
         this.updateMessagesQueue.clear();
-        this.logger.debug("Update messages queue is cleared.");
+        LOGGER.debug("Update messages queue is cleared.");
         this.receivedSummonerNamesUpdate = true;
     }
 
@@ -283,7 +283,7 @@ public class WSClient extends WebSocketClient {
                 throw new JsonDataException("jsonMessage is null!");
             }
         } catch (IOException e) {
-            this.logger.error(e.getMessage(), e);
+            LOGGER.error(e.getMessage(), e);
             return;
         }
 
@@ -306,7 +306,7 @@ public class WSClient extends WebSocketClient {
             this.updateMessagesQueue.add(jsonMessage);
             this.adjustCellIds();
         } else if (!this.receivedSummonerNamesUpdate) {
-            this.logger.debug("Added update message to queue while waiting for names.");
+            LOGGER.debug("Added update message to queue while waiting for names.");
             this.updateMessagesQueue.add(jsonMessage);
         } else {
             this.handleChampSelectUpdate(jsonMessage);
@@ -319,9 +319,9 @@ public class WSClient extends WebSocketClient {
         // Check if this we're spectating or not. Unused for now.
         if (this.isFirstUpdate) {
             if (session.isSpectating()) {
-                this.logger.debug("Currently spectating the game.");
+                LOGGER.debug("Currently spectating the game.");
             } else {
-                this.logger.debug("Not a spectator!");
+                LOGGER.debug("Not a spectator!");
             }
             this.myTeamIsBlueTeam = this.isMyTeamBlueTeam(session);
         }
@@ -348,18 +348,18 @@ public class WSClient extends WebSocketClient {
                 for (Action action : newActions.get(activeActionGroupIndex)) {
                     if (action.getType() == TEN_BANS_REVEAL) {
                         // Don't handle ten bans reveal, we don't care about it
-                        this.logger.debug("Ten bans reveal started.");
+                        LOGGER.debug("Ten bans reveal started.");
                         continue;
                     }
                     Player player = this.getPlayerByCellId(action.getActorCellId());
                     if (player == null) {
-                        this.logger.error("Unknown player with cellId " + action.getActorCellId());
+                        LOGGER.error("Unknown player with cellId " + action.getActorCellId());
                         continue;
                     }
                     StringBuilder builder = new StringBuilder(player.getSummonerName());
                     switch (action.getType()) {
                         case VOTE:
-                            this.logger.debug("Received a vote message.");
+                            LOGGER.debug("Received a vote message.");
                             break;
                         case BAN: {
                             builder.append(" is banning... ");
@@ -373,7 +373,7 @@ public class WSClient extends WebSocketClient {
                                 SetBanIntentMessage banIntentMessage = new SetBanIntentMessage(champion.getKey(), player.getAdjustedCellId());
                                 this.sendMessagesToWebapp(SetBanIntentMessage.class, banIntentMessage);
                             }
-                            this.logger.debug(builder.toString());
+                            LOGGER.debug(builder.toString());
                             break;
                         }
                         case PICK: {
@@ -389,11 +389,11 @@ public class WSClient extends WebSocketClient {
                                 SetPickIntentMessage msg2 = new SetPickIntentMessage(player.getAdjustedCellId(), champion.getKey());
                                 this.sendMessagesToWebapp(SetPickIntentMessage.class, msg2);
                             }
-                            this.logger.debug(builder.toString());
+                            LOGGER.debug(builder.toString());
                             break;
                         }
                         case UNKNOWN:
-                            this.logger.warn("Received unknown action type!!");
+                            LOGGER.warn("Received unknown action type!!");
                             break;
                         // No need for a default case, it is already handled by ActionType.UNKNOWN
                     }
@@ -402,7 +402,7 @@ public class WSClient extends WebSocketClient {
                 List<Action> activeActionGroup = newActions.get(activeActionGroupIndex);
                 List<Action> oldActiveActionGroup = oldActions.get(activeActionGroupIndex);
                 if (activeActionGroup.size() != oldActions.get(activeActionGroupIndex).size()) {
-                    this.logger.warn("newActions action group size is different!! might throw a lot");
+                    LOGGER.warn("newActions action group size is different!! might throw a lot");
                 }
                 for (int i = 0; i < activeActionGroup.size(); i++) {
                     Action updatedAction = activeActionGroup.get(i);
@@ -425,13 +425,13 @@ public class WSClient extends WebSocketClient {
                                     championName = "None";
                                     championKey = "None";
                                 }
-                                this.logger.debug("New champion selected by " + player.getSummonerName() + "! " + championName);
+                                LOGGER.debug("New champion selected by " + player.getSummonerName() + "! " + championName);
                                 if (updatedAction.getType() == PICK) {
                                     SetPickIntentMessage msg = new SetPickIntentMessage(player.getAdjustedCellId(), championKey);
                                     this.sendMessagesToWebapp(SetPickIntentMessage.class, msg);
                                 }
                             } else {
-                                this.logger.error("Unknown player with cellId " + updatedAction.getActorCellId());
+                                LOGGER.error("Unknown player with cellId " + updatedAction.getActorCellId());
                             }
                         }
                         if (updatedAction.isCompleted() != oldAction.isCompleted()) { // action just completed
@@ -447,7 +447,7 @@ public class WSClient extends WebSocketClient {
         // TODO: handle unknown phase better
         if (newPhase != Timer.Phase.UNKNOWN) { // If phase is known, we can consider that we have info on the timer
             if (newPhase != this.previousSession.getTimer().getPhase()) {
-                this.logger.debug("New phase: " + newPhase);
+                LOGGER.debug("New phase: " + newPhase);
             }
 
             // Update timer in webapp
@@ -462,7 +462,7 @@ public class WSClient extends WebSocketClient {
                 Long spell2Id = ps.getSpell2Id();
                 if (spell1Id != 0 && spell2Id != 0) { // if we have info on the enemy team sums
                     String summonerName = player.getSummonerName();
-                    this.logger.debug(summonerName + " has summoner spells "
+                    LOGGER.debug(summonerName + " has summoner spells "
                             + SummonerSpell.withId(spell1Id.intValue()).get().getName()
                             + " and " + SummonerSpell.withId(spell2Id.intValue()).get().getName());
 
@@ -484,14 +484,14 @@ public class WSClient extends WebSocketClient {
                 Long newSpell2Id = newPs.getSpell2Id();
                 long adjustedCellId = this.getAdjustedCellId(newPs.getCellId());
                 if (!newSpell1Id.equals(oldPs.getSpell1Id()) && newSpell1Id != 0) {
-                    this.logger.debug(summonerName + " changed summoner spell 1 to "
+                    LOGGER.debug(summonerName + " changed summoner spell 1 to "
                             + SummonerSpell.withId(newSpell1Id.intValue()).get().getName());
 
                     SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 1, newSpell1Id);
                     this.sendMessagesToWebapp(SetSummonerSpellsMessage.class, msg);
                 }
                 if (!newSpell2Id.equals(oldPs.getSpell2Id()) && newSpell2Id != 0) {
-                    this.logger.debug(summonerName + " changed summoner spell 2 to "
+                    LOGGER.debug(summonerName + " changed summoner spell 2 to "
                             + SummonerSpell.withId(newSpell2Id.intValue()).get().getName());
 
                     SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 2, newSpell2Id);
@@ -528,13 +528,13 @@ public class WSClient extends WebSocketClient {
     private void handleCompletedAction(Action action) {
         // Handle ten bans reveal
         if (action.getType() == TEN_BANS_REVEAL) {
-            this.logger.debug("Ten bans reveal completed.");
+            LOGGER.debug("Ten bans reveal completed.");
             return;
         }
 
         Player player = this.getPlayerByCellId(action.getActorCellId());
         if (player == null) {
-            this.logger.error("Unknown player with cellId " + action.getActorCellId());
+            LOGGER.error("Unknown player with cellId " + action.getActorCellId());
             return;
         }
         StringBuilder builder = new StringBuilder(player.getSummonerName());
@@ -580,7 +580,7 @@ public class WSClient extends WebSocketClient {
                 break;
         }
 
-        this.logger.debug(builder.toString());
+        LOGGER.debug(builder.toString());
     }
 
     /**
@@ -662,7 +662,7 @@ public class WSClient extends WebSocketClient {
         this.playerList.clear();
         this.previousSession = null;
         // Send the request to the web component asking to close champion select.
-        this.logger.info("Champion select has ended.");
+        LOGGER.info("Champion select has ended.");
 
         ChampSelectDeleteMessage deleteMessage = new ChampSelectDeleteMessage();
         this.sendMessagesToWebapp(ChampSelectDeleteMessage.class, deleteMessage);
@@ -695,7 +695,7 @@ public class WSClient extends WebSocketClient {
         String query = builder.toString();
 
         this.send(query);
-        this.logger.debug("Sent update name request: " + query);
+        LOGGER.debug("Sent update name request: " + query);
     }
 
     private void adjustCellIds() {

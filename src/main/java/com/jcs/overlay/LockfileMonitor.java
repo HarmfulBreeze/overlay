@@ -10,7 +10,7 @@ import java.nio.file.*;
 import static java.nio.file.StandardWatchEventKinds.*;
 
 public class LockfileMonitor implements Runnable {
-    private final Logger logger = LoggerFactory.getLogger(LockfileMonitor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LockfileMonitor.class);
     private WatchService watchService;
 
     public synchronized void setLeagueStarted(boolean leagueStarted) {
@@ -27,13 +27,13 @@ public class LockfileMonitor implements Runnable {
             leagueFolderPath = Utils.getLeagueDirectory().toPath();
             leagueFolderPath.register(this.watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
         } catch (IOException e) {
-            this.logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
             return;
         }
 
         Path lockfilePath = leagueFolderPath.resolve("lockfile");
 
-        this.logger.info("Welcome! Awaiting connection to the game...");
+        LOGGER.info("Welcome! Awaiting connection to the game...");
 
         // On vérifie si le jeu est déjà démarré, si oui, se connecter directement
         if (lockfilePath.toFile().exists() && !Utils.readLockFile().isEmpty()) {
@@ -73,7 +73,7 @@ public class LockfileMonitor implements Runnable {
                 key.reset();
             }
         } catch (InterruptedException e) {
-            this.logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
             Thread.currentThread().interrupt();
         } catch (ClosedWatchServiceException e) {
             // Will be thrown when LockfileMonitor.stop() is called.
@@ -84,7 +84,7 @@ public class LockfileMonitor implements Runnable {
         try {
             this.watchService.close();
         } catch (IOException e) {
-            this.logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
         }
     }
 }

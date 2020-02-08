@@ -25,12 +25,12 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class App {
-    private static App app;
-    private final Logger logger = LoggerFactory.getLogger(App.class);
+    private static final App APP = new App();
+    private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
+    private static boolean guiEnabled;
     private final LockfileMonitor lockfileMonitor;
     private final Thread lockfileMonitorThread;
     private final WebSocketServer wsServer;
-    private static boolean guiEnabled;
     private WebSocketClient wsClient;
     private WSAutoReconnect autoReconnect;
     private Thread autoReconnectThread;
@@ -47,24 +47,19 @@ public class App {
         // Pre-caching
         Champions.get().load();
         if (this.checkForNewPatch()) {
-            this.logger.info("New patch detected! Updating webapp images.");
+            LOGGER.info("New patch detected! Updating webapp images.");
             this.updateWebappImages();
             this.updateLatestPatchFile();
         }
     }
 
     public static void main(String[] args) {
-        if (args.length > 0 && args[0].equals("-nogui")) {
-            guiEnabled = false;
-        } else {
-            guiEnabled = true;
-        }
-        app = new App();
-        app.start();
+        guiEnabled = args.length <= 0 || !args[0].equals("-nogui");
+        APP.start();
     }
 
     public static App getApp() {
-        return app;
+        return APP;
     }
 
     private boolean checkForNewPatch() {
@@ -75,14 +70,14 @@ public class App {
                 return true;
             }
         } catch (IOException e) {
-            this.logger.error(e.getMessage(), e);
+            LOGGER.error(e.getMessage(), e);
             return true;
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(latestVersionFile))) {
             String s = reader.readLine();
             return s == null || !s.equals(latestVersion);
         } catch (IOException e) {
-            this.logger.error(e.getMessage(), e);
+            LOGGER.error(e.getMessage(), e);
             return true;
         }
     }
@@ -93,7 +88,7 @@ public class App {
         try (FileWriter writer = new FileWriter(latestVersionFile)) {
             writer.write(latestVersion);
         } catch (IOException e) {
-            this.logger.info(e.getMessage(), e);
+            LOGGER.info(e.getMessage(), e);
         }
     }
 
@@ -107,52 +102,52 @@ public class App {
 
         this.wsServer.start();
 
-        if (this.guiEnabled) {
+        if (guiEnabled) {
             new CefManager();
         }
     }
 
     synchronized public void stop() {
-        this.logger.info("Shutting down...");
+        LOGGER.info("Shutting down...");
         this.lockfileMonitor.stop();
-        this.logger.debug("Waiting for lockfile monitor to close...");
+        LOGGER.debug("Waiting for lockfile monitor to close...");
         try {
             this.lockfileMonitorThread.join();
-            this.logger.debug("Lockfile monitor stopped.");
+            LOGGER.debug("Lockfile monitor stopped.");
         } catch (InterruptedException e) {
-            this.logger.error("Error stopping lockfile monitor", e);
+            LOGGER.error("Error stopping lockfile monitor", e);
         }
 
         if (this.wsClient != null) {
-            this.logger.debug("Stopping wsClient...");
+            LOGGER.debug("Stopping wsClient...");
             try {
                 this.wsClient.closeBlocking();
-                this.logger.debug("wsClient stopped.");
+                LOGGER.debug("wsClient stopped.");
             } catch (InterruptedException e) {
-                this.logger.error("Error stopping wsClient", e);
+                LOGGER.error("Error stopping wsClient", e);
             }
         }
 
-        this.logger.debug("Stopping wsServer...");
+        LOGGER.debug("Stopping wsServer...");
         try {
             this.wsServer.stop();
-            this.logger.debug("wsServer stopped.");
+            LOGGER.debug("wsServer stopped.");
         } catch (IOException | InterruptedException e) {
-            this.logger.error("Error stopping wsServer", e);
+            LOGGER.error("Error stopping wsServer", e);
         }
 
         if (this.autoReconnect != null) {
-            this.logger.debug("Stopping WSAutoReconnect...");
+            LOGGER.debug("Stopping WSAutoReconnect...");
             this.autoReconnect.stop();
             try {
                 this.autoReconnectThread.join();
-                this.logger.debug("WSAutoReconnect stopped.");
+                LOGGER.debug("WSAutoReconnect stopped.");
             } catch (InterruptedException e) {
-                this.logger.error("Error stopping WSAutoReconnect", e);
+                LOGGER.error("Error stopping WSAutoReconnect", e);
             }
         }
 
-        this.logger.info("Successfully shut down. Bye!");
+        LOGGER.info("Successfully shut down. Bye!");
         System.exit(0);
     }
 
@@ -165,7 +160,7 @@ public class App {
     }
 
     void onLeagueStart(String lockfileContent) {
-        this.logger.debug("Client launched!");
+        LOGGER.debug("Client launched!");
 
         String[] parts = Utils.parseLockfile(lockfileContent);
         String port = parts[2];
@@ -179,7 +174,7 @@ public class App {
         try {
             this.wsClient.connectBlocking(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            this.logger.error("Exception caught:", e);
+            LOGGER.error("Exception caught:", e);
             Thread.currentThread().interrupt();
         }
 
@@ -190,7 +185,7 @@ public class App {
     void onLeagueStop() {
         if (this.autoReconnect != null) {
             this.stopAutoReconnect();
-            this.logger.debug("Client closed.");
+            LOGGER.debug("Client closed.");
         }
     }
 
@@ -206,7 +201,7 @@ public class App {
         try {
             this.autoReconnectThread.join();
         } catch (InterruptedException e) {
-            this.logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
         }
 
         this.autoReconnect = null;
@@ -223,7 +218,7 @@ public class App {
             try {
                 ImageIO.write(spell.getImage().get(), "png", file);
             } catch (IOException e) {
-                this.logger.error(e.getMessage(), e);
+                LOGGER.error(e.getMessage(), e);
             }
         }
 
@@ -234,7 +229,7 @@ public class App {
             try {
                 ImageIO.write(champion.getImage().get(), "png", file);
             } catch (IOException e) {
-                this.logger.error(e.getMessage(), e);
+                LOGGER.error(e.getMessage(), e);
             }
         }
 
@@ -243,7 +238,7 @@ public class App {
         String latestVersion = Versions.get().get(0);
         String url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/generic/square";
         Request request = new Request.Builder().url(url).build();
-        this.logger.info("Making GET request to " + url);
+        LOGGER.info("Making GET request to " + url);
         try (Response response = client.newCall(request).execute()) {
             if (response.code() == 200 && response.body() != null) {
                 InputStream is = response.body().byteStream();
@@ -252,7 +247,7 @@ public class App {
                 ImageIO.write(img, "png", file);
             }
         } catch (IOException e) {
-            this.logger.error(e.getMessage(), e);
+            LOGGER.error(e.getMessage(), e);
         }
 
         // Download every champion's centered splash art and write them to pngs
@@ -260,7 +255,7 @@ public class App {
             String championKey = champion.getKey();
             url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/" + championKey + "/splash-art/centered";
             request = new Request.Builder().url(url).build();
-            this.logger.info("Making GET request to " + url);
+            LOGGER.info("Making GET request to " + url);
             try (Response response = client.newCall(request).execute()) {
                 if (response.code() == 200 && response.body() != null) {
                     InputStream is = response.body().byteStream();
@@ -269,7 +264,7 @@ public class App {
                     ImageIO.write(img, "png", file);
                 }
             } catch (IOException e) {
-                this.logger.error(e.getMessage(), e);
+                LOGGER.error(e.getMessage(), e);
             }
         }
     }

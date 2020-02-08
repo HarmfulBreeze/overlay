@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class WSAutoReconnect implements Runnable {
-    private final Logger logger = LoggerFactory.getLogger(WSAutoReconnect.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(WSAutoReconnect.class);
     private boolean shouldStop;
     public WSAutoReconnect() {
         this.shouldStop = false;
@@ -24,7 +24,7 @@ public class WSAutoReconnect implements Runnable {
                 Thread.sleep(500);
                 client = App.getApp().getWsClient();
             } catch (InterruptedException e) {
-                this.logger.error("Exception caught: ", e);
+                LOGGER.error("Exception caught: ", e);
             }
         }
 
@@ -32,13 +32,13 @@ public class WSAutoReconnect implements Runnable {
         while (!this.shouldStop && stopCount <= 10) {
             try {
                 if (!client.isOpen()) {
-                    this.logger.info("Trying to reconnect... (" + stopCount + "/10)");
+                    LOGGER.info("Trying to reconnect... (" + stopCount + "/10)");
                     client.reconnectBlocking();
                     if (client.isOpen()) {
                         stopCount = 1;
                     } else {
                         App.getApp().getLockfileMonitor().setLeagueStarted(false);
-                        this.logger.error("Could not connect, next retry in 5 seconds...");
+                        LOGGER.error("Could not connect, next retry in 5 seconds...");
                         stopCount++;
                         Thread.sleep(5000);
                     }
@@ -46,12 +46,12 @@ public class WSAutoReconnect implements Runnable {
                     Thread.sleep(1000);
                 }
             } catch (InterruptedException e) {
-                this.logger.error("Exception caught: ", e);
+                LOGGER.error("Exception caught: ", e);
                 Thread.currentThread().interrupt();
             }
         }
         if (stopCount == 11) {
-            this.logger.error("Connection lost, we will not try to reconnect anymore. Please restart the client.");
+            LOGGER.error("Connection lost, we will not try to reconnect anymore. Please restart the client.");
         }
     }
 }

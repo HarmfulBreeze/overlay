@@ -18,7 +18,7 @@ public class Utils {
         throw new UnsupportedOperationException("Utility class");
     }
 
-    private static final Logger logger = LoggerFactory.getLogger(Utils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class);
 
     @NotNull
     public static String readLockFile() {
@@ -28,7 +28,7 @@ public class Utils {
         try {
             leagueDirectory = getLeagueDirectory();
         } catch (FileNotFoundException e) {
-            logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
             return "";
         }
 
@@ -37,19 +37,19 @@ public class Utils {
         try {
             Files.copy(originalLockFile, lockfile, REPLACE_EXISTING);
         } catch (IOException e) {
-            logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
         }
 
         try (BufferedReader reader = new BufferedReader(new FileReader(lockfile.toFile()))) {
             lockfileContents = reader.readLine();
         } catch (Exception e) {
-            logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
         }
 
         try {
             Files.delete(lockfile);
         } catch (IOException e) {
-            logger.error("Exception caught: ", e);
+            LOGGER.error("Exception caught: ", e);
         }
 
         if (lockfileContents == null) {
