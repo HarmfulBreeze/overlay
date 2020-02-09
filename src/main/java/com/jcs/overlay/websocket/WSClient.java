@@ -5,6 +5,7 @@ import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
 import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
 import com.jcs.overlay.websocket.messages.J2W.*;
+import com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.TeamNames;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpell;
 import com.squareup.moshi.JsonAdapter;
@@ -37,6 +38,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.jcs.overlay.websocket.messages.C2J.champselect.Action.ActionType.*;
+import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.Color;
+import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.TeamColors;
 
 public class WSClient extends WebSocketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
@@ -214,7 +217,8 @@ public class WSClient extends WebSocketClient {
 
         // TODO: make it customizable
         TeamNames teamNames = new TeamNames("Blue team", "Red team");
-        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames);
+        TeamColors teamColors = new TeamColors(new Color(0, 191, 255), new Color(220, 20, 60));
+        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors);
         this.sendMessagesToWebapp(ChampSelectCreateMessage.class, createMessage);
     }
 
