@@ -216,6 +216,7 @@ public class App {
         for (SummonerSpell spell : spells) {
             File file = new File(imgFolderPath + "icon/spell/" + spell.getId() + ".png");
             try {
+                file.getParentFile().mkdirs();
                 ImageIO.write(spell.getImage().get(), "png", file);
             } catch (IOException e) {
                 LOGGER.error(e.getMessage(), e);
@@ -227,6 +228,7 @@ public class App {
         for (Champion champion : allChampions) {
             File file = new File(imgFolderPath + "icon/champion/icon_" + champion.getKey() + ".png");
             try {
+                file.getParentFile().mkdirs();
                 ImageIO.write(champion.getImage().get(), "png", file);
             } catch (IOException e) {
                 LOGGER.error(e.getMessage(), e);
@@ -260,6 +262,7 @@ public class App {
                 if (response.code() == 200 && response.body() != null) {
                     InputStream is = response.body().byteStream();
                     File file = new File(imgFolderPath + "splash/" + championKey + ".png");
+                    file.getParentFile().mkdirs();
                     BufferedImage img = ImageIO.read(is);
                     ImageIO.write(img, "png", file);
                 }
