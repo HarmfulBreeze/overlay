@@ -1,5 +1,7 @@
 package com.jcs.overlay.websocket.messages.J2W;
 
+import java.util.List;
+
 public class ChampSelectCreateMessage {
     private final TeamNames teamNames;
     private final TeamColors teamColors;
@@ -27,6 +29,11 @@ public class ChampSelectCreateMessage {
         public TeamColors(Color team100Color, Color team200Color) {
             this.team100Color = team100Color;
             this.team200Color = team200Color;
+        }
+
+        public TeamColors(List<Integer> team100Color, List<Integer> team200Color) {
+            this.team100Color = new Color(team100Color.get(0), team100Color.get(1), team100Color.get(2));
+            this.team200Color = new Color(team200Color.get(0), team200Color.get(1), team200Color.get(2));
         }
     }
 

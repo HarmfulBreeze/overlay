@@ -126,3 +126,4 @@ gradle-app.setting
 ### Other
 apikey.txt
 latestPatch.txt
+/config.conf

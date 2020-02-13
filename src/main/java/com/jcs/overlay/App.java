@@ -1,6 +1,7 @@
 package com.jcs.overlay;
 
 import com.jcs.overlay.cef.CefManager;
+import com.jcs.overlay.utils.SettingsWatcher;
 import com.jcs.overlay.utils.Utils;
 import com.jcs.overlay.websocket.WSAutoReconnect;
 import com.jcs.overlay.websocket.WSClient;
@@ -10,6 +11,7 @@ import com.merakianalytics.orianna.types.core.staticdata.*;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.cef.CefApp;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
@@ -25,7 +27,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class App {
-    private static final App APP = new App();
+    private static App APP;
     private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
     private static boolean guiEnabled;
     private final LockfileMonitor lockfileMonitor;
@@ -34,6 +36,7 @@ public class App {
     private WebSocketClient wsClient;
     private WSAutoReconnect autoReconnect;
     private Thread autoReconnectThread;
+    private CefManager cefManager;
 
     private App() {
         this.lockfileMonitor = new LockfileMonitor();
@@ -55,6 +58,7 @@ public class App {
 
     public static void main(String[] args) {
         guiEnabled = args.length <= 0 || !args[0].equals("-nogui");
+        APP = new App();
         APP.start();
     }
 
@@ -102,13 +106,21 @@ public class App {
 
         this.wsServer.start();
 
+        Thread settingsWatcherThread = new Thread(new SettingsWatcher());
+        settingsWatcherThread.setName("Settings Watcher");
+        settingsWatcherThread.start();
+
         if (guiEnabled) {
-            new CefManager();
+            this.cefManager = new CefManager();
         }
     }
 
-    synchronized public void stop() {
+    synchronized public void stop(boolean shouldRestart) {
         LOGGER.info("Shutting down...");
+        if (CefApp.getState() != CefApp.CefAppState.TERMINATED) {
+            CefApp.getInstance().dispose();
+        }
+        this.cefManager.getMainFrame().dispose();
         this.lockfileMonitor.stop();
         LOGGER.debug("Waiting for lockfile monitor to close...");
         try {
@@ -148,7 +160,13 @@ public class App {
         }
 
         LOGGER.info("Successfully shut down. Bye!");
-        System.exit(0);
+
+        if (shouldRestart) {
+            APP = new App();
+            APP.start();
+        } else {
+            System.exit(0);
+        }
     }
 
     public LockfileMonitor getLockfileMonitor() {

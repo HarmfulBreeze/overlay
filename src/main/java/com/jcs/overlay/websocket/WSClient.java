@@ -1,18 +1,21 @@
 package com.jcs.overlay.websocket;
 
 import com.jcs.overlay.App;
+import com.jcs.overlay.utils.SettingsManager;
 import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
 import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
 import com.jcs.overlay.websocket.messages.J2W.*;
 import com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.TeamNames;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
+import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpell;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
 import com.squareup.moshi.adapters.EnumJsonAdapter;
+import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.framing.CloseFrame;
@@ -216,8 +219,13 @@ public class WSClient extends WebSocketClient {
         this.bans = new Bans();
 
         // TODO: make it customizable
-        TeamNames teamNames = new TeamNames("Blue team", "Red team");
-        TeamColors teamColors = new TeamColors(new Color(0, 191, 255), new Color(220, 20, 60));
+        Config config = SettingsManager.get().getConfig();
+        String team100Name = config.getString("teams.blue.name");
+        String team200Name = config.getString("teams.red.name");
+        List<Integer> team100Color = config.getIntList("teams.blue.rgbColor");
+        List<Integer> team200Color = config.getIntList("teams.red.rgbColor");
+        TeamNames teamNames = new TeamNames(team100Name, team200Name);
+        TeamColors teamColors = new TeamColors(team100Color, team200Color);
         ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors);
         this.sendMessagesToWebapp(ChampSelectCreateMessage.class, createMessage);
     }
