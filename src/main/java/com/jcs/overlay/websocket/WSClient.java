@@ -41,7 +41,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.jcs.overlay.websocket.messages.C2J.champselect.Action.ActionType.*;
-import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.Color;
 import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.TeamColors;
 
 public class WSClient extends WebSocketClient {
@@ -219,7 +218,7 @@ public class WSClient extends WebSocketClient {
         this.bans = new Bans();
 
         // TODO: make it customizable
-        Config config = SettingsManager.get().getConfig();
+        Config config = SettingsManager.getManager().getConfig();
         String team100Name = config.getString("teams.blue.name");
         String team200Name = config.getString("teams.red.name");
         List<Integer> team100Color = config.getIntList("teams.blue.rgbColor");
@@ -228,6 +227,11 @@ public class WSClient extends WebSocketClient {
         TeamColors teamColors = new TeamColors(team100Color, team200Color);
         ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors);
         this.sendMessagesToWebapp(ChampSelectCreateMessage.class, createMessage);
+
+        List<String> championKeys = new ArrayList<>();
+        Champions.get().forEach(champ -> championKeys.add(champ.getKey()));
+        PreloadSplashImagesMessage preloadMessage = new PreloadSplashImagesMessage(championKeys);
+        this.sendMessagesToWebapp(PreloadSplashImagesMessage.class, preloadMessage);
     }
 
     private void handleSummonerNamesUpdate(String message) {

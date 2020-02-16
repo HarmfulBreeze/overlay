@@ -1,11 +1,17 @@
 package com.jcs.overlay.utils;
 
+import com.merakianalytics.orianna.types.core.staticdata.*;
 import com.sun.jna.platform.win32.Advapi32Util;
 import com.sun.jna.platform.win32.WinReg;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -107,5 +113,100 @@ public class Utils {
     public static String fromPasswordToAuthToken(String password) {
         String start = "riot:" + password;
         return "Basic " + Base64.getEncoder().encodeToString(start.getBytes());
+    }
+
+    public static boolean checkForNewPatch() {
+        File latestVersionFile = new File(System.getProperty("user.dir") + "/latestPatch.txt");
+        String latestVersion = Versions.get().get(0);
+        try {
+            if (latestVersionFile.createNewFile()) {
+                return true;
+            }
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+            return true;
+        }
+        try (BufferedReader reader = new BufferedReader(new FileReader(latestVersionFile))) {
+            String s = reader.readLine();
+            return s == null || !s.equals(latestVersion);
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+            return true;
+        }
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored") // for mkdirs
+    public static void updateWebappImages() {
+        String imgFolderPath = System.getProperty("user.dir") + "/web/img/";
+
+        // Download all summoner spells images and write them to pngs
+        SummonerSpells spells = SummonerSpells.get();
+        for (SummonerSpell spell : spells) {
+            File file = new File(imgFolderPath + "icon/spell/" + spell.getId() + ".png");
+            try {
+                file.getParentFile().mkdirs();
+                ImageIO.write(spell.getImage().get(), "png", file);
+            } catch (IOException e) {
+                LOGGER.error(e.getMessage(), e);
+            }
+        }
+
+        // Download all champion icons and write them to pngs
+        Champions allChampions = Champions.get();
+        for (Champion champion : allChampions) {
+            File file = new File(imgFolderPath + "icon/champion/icon_" + champion.getKey() + ".png");
+            try {
+                file.getParentFile().mkdirs();
+                ImageIO.write(champion.getImage().get(), "png", file);
+            } catch (IOException e) {
+                LOGGER.error(e.getMessage(), e);
+            }
+        }
+
+        // Download the generic champion icon directly from the CDN and write it to a png
+        OkHttpClient client = new OkHttpClient();
+        String latestVersion = Versions.get().get(0);
+        String url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/generic/square";
+        Request request = new Request.Builder().url(url).build();
+        LOGGER.info("Making GET request to " + url);
+        try (Response response = client.newCall(request).execute()) {
+            if (response.code() == 200 && response.body() != null) {
+                InputStream is = response.body().byteStream();
+                File file = new File(imgFolderPath + "icon/champion/icon_None.png");
+                BufferedImage img = ImageIO.read(is);
+                ImageIO.write(img, "png", file);
+            }
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+        }
+
+        // Download every champion's centered splash art and write them to pngs
+        for (Champion champion : allChampions) {
+            String championKey = champion.getKey();
+            url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/" + championKey + "/splash-art/centered";
+            request = new Request.Builder().url(url).build();
+            LOGGER.info("Making GET request to " + url);
+            try (Response response = client.newCall(request).execute()) {
+                if (response.code() == 200 && response.body() != null) {
+                    InputStream is = response.body().byteStream();
+                    File file = new File(imgFolderPath + "splash/" + championKey + ".png");
+                    file.getParentFile().mkdirs();
+                    BufferedImage img = ImageIO.read(is);
+                    ImageIO.write(img, "png", file);
+                }
+            } catch (IOException e) {
+                LOGGER.error(e.getMessage(), e);
+            }
+        }
+    }
+
+    public static void updateLatestPatchFile() {
+        File latestVersionFile = new File(System.getProperty("user.dir") + "/latestPatch.txt");
+        String latestVersion = Versions.get().get(0);
+        try (FileWriter writer = new FileWriter(latestVersionFile)) {
+            writer.write(latestVersion);
+        } catch (IOException e) {
+            LOGGER.info(e.getMessage(), e);
+        }
     }
 }

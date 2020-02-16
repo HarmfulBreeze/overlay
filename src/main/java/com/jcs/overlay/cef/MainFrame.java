@@ -49,7 +49,7 @@ public class MainFrame extends JFrame {
             public void stateHasChanged(CefAppState state) {
                 // Shutdown the app if the native CEF part is terminated
                 if (state == CefApp.CefAppState.TERMINATED) {
-                    App.getApp().stop(false);
+                    App.getApp().stop();
                 }
             }
         });
@@ -108,10 +108,9 @@ public class MainFrame extends JFrame {
 
         // (5) All UI components are assigned to the default content pane of this
         //     JFrame and afterwards the frame is made visible to the user.
-//        getContentPane().add(address_, BorderLayout.NORTH);
         this.getContentPane().add(this.browserUI_, BorderLayout.CENTER);
-        int windowWidth = SettingsManager.get().getConfig().getInt("window.width");
-        int windowHeight = SettingsManager.get().getConfig().getInt("window.height");
+        int windowWidth = SettingsManager.getManager().getConfig().getInt("window.width");
+        int windowHeight = SettingsManager.getManager().getConfig().getInt("window.height");
         this.getContentPane().setPreferredSize(new Dimension(windowWidth, windowHeight));
         this.pack();
         this.setResizable(false);
@@ -125,7 +124,6 @@ public class MainFrame extends JFrame {
             @Override
             public void windowClosing(WindowEvent e) {
                 CefApp.getInstance().dispose();
-                MainFrame.this.dispose();
             }
         });
     }

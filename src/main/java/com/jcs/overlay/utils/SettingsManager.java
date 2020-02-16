@@ -14,7 +14,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public final class SettingsManager {
-    private static final SettingsManager INSTANCE = new SettingsManager();
     private final Logger logger = LoggerFactory.getLogger(SettingsManager.class);
 
     private final Config config;
@@ -52,15 +51,19 @@ public final class SettingsManager {
         this.config = effectiveConfig;
     }
 
-    public static SettingsManager get() {
-        return INSTANCE;
+    private static class Holder {
+        private static final SettingsManager instance = new SettingsManager();
     }
 
-    public final Config getConfig() {
+    public static SettingsManager getManager() {
+        return Holder.instance;
+    }
+
+    public Config getConfig() {
         return this.config.getConfig("overlay");
     }
 
-    public final void saveConfig() {
+    public void saveConfig() {
         try {
             Files.write(this.configPath, this.config.root().render(ConfigRenderOptions.concise()).getBytes());
         } catch (IOException e) {

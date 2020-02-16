@@ -7,14 +7,7 @@ import org.slf4j.LoggerFactory;
 
 public class WSAutoReconnect implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSAutoReconnect.class);
-    private boolean shouldStop;
-    public WSAutoReconnect() {
-        this.shouldStop = false;
-    }
-
-    public void stop() {
-        this.shouldStop = true;
-    }
+    private boolean shouldStop = false;
 
     @Override
     public void run() {
@@ -53,5 +46,9 @@ public class WSAutoReconnect implements Runnable {
         if (stopCount == 11) {
             LOGGER.error("Connection lost, we will not try to reconnect anymore. Please restart the client.");
         }
+    }
+
+    public void stop() {
+        this.shouldStop = true;
     }
 }
