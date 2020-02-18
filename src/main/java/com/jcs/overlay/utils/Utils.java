@@ -3,6 +3,8 @@ package com.jcs.overlay.utils;
 import com.merakianalytics.orianna.types.core.staticdata.*;
 import com.sun.jna.platform.win32.Advapi32Util;
 import com.sun.jna.platform.win32.WinReg;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValueFactory;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -115,24 +117,15 @@ public class Utils {
         return "Basic " + Base64.getEncoder().encodeToString(start.getBytes());
     }
 
+    /**
+     * Checks if a more recent patch was released since the last startup.
+     *
+     * @return {@code true} if a new patch was released, else {@code false}.
+     */
     public static boolean checkForNewPatch() {
-        File latestVersionFile = new File(System.getProperty("user.dir") + "/latestPatch.txt");
+        String currentVersion = SettingsManager.getManager().getConfig().getString("debug.latestPatch");
         String latestVersion = Versions.get().get(0);
-        try {
-            if (latestVersionFile.createNewFile()) {
-                return true;
-            }
-        } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
-            return true;
-        }
-        try (BufferedReader reader = new BufferedReader(new FileReader(latestVersionFile))) {
-            String s = reader.readLine();
-            return s == null || !s.equals(latestVersion);
-        } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
-            return true;
-        }
+        return !currentVersion.equals(latestVersion);
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored") // for mkdirs
@@ -201,12 +194,11 @@ public class Utils {
     }
 
     public static void updateLatestPatchFile() {
-        File latestVersionFile = new File(System.getProperty("user.dir") + "/latestPatch.txt");
         String latestVersion = Versions.get().get(0);
-        try (FileWriter writer = new FileWriter(latestVersionFile)) {
-            writer.write(latestVersion);
-        } catch (IOException e) {
-            LOGGER.info(e.getMessage(), e);
-        }
+        Config newConfig = SettingsManager.getManager().getConfig()
+                .withValue("debug.latestPatch", ConfigValueFactory.fromAnyRef(latestVersion))
+                .atPath("overlay");
+        SettingsManager.getManager().updateConfig(newConfig);
+        SettingsManager.getManager().writeConfig();
     }
 }

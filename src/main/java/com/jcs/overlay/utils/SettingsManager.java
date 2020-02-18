@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,7 +15,7 @@ import java.nio.file.Paths;
 public final class SettingsManager {
     private final Logger logger = LoggerFactory.getLogger(SettingsManager.class);
 
-    private final Config config;
+    private Config config;
     private final Path configPath = Paths.get(System.getProperty("user.dir") + "/config.conf");
 
     private SettingsManager() {
@@ -30,7 +29,7 @@ public final class SettingsManager {
                 ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
                 Path path = Paths.get(classLoader.getResource("application.conf").toURI());
                 Files.write(this.configPath, Files.readAllBytes(path));
-            } catch (IOException | URISyntaxException | NullPointerException e) {
+            } catch (Exception e) {
                 this.logger.error(e.getMessage(), e);
             }
         }
@@ -63,9 +62,16 @@ public final class SettingsManager {
         return this.config.getConfig("overlay");
     }
 
-    public void saveConfig() {
+    public void updateConfig(Config newConfig) {
+        this.config = newConfig;
+    }
+
+    public void writeConfig() {
         try {
-            Files.write(this.configPath, this.config.root().render(ConfigRenderOptions.concise()).getBytes());
+            Files.write(this.configPath, this.config.root()
+                    .render(ConfigRenderOptions.defaults().setOriginComments(false).setComments(false))
+                    .getBytes()
+            );
         } catch (IOException e) {
             this.logger.error(e.getMessage(), e);
         }
