@@ -3,7 +3,6 @@ package com.jcs.overlay.utils;
 import com.merakianalytics.orianna.types.core.staticdata.*;
 import com.sun.jna.platform.win32.Advapi32Util;
 import com.sun.jna.platform.win32.WinReg;
-import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValueFactory;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -195,6 +194,10 @@ public class Utils {
                 LOGGER.error(e.getMessage(), e);
             }
         }
+
+        // Shutdown our OkHttp client
+        client.dispatcher().executorService().shutdown();
+        client.connectionPool().evictAll();
     }
 
     public static void updateLatestPatchFile() {
