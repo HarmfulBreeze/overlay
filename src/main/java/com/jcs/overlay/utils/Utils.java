@@ -14,9 +14,13 @@ import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Base64;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -32,32 +36,32 @@ public class Utils {
     public static String readLockFile() {
         String lockfileContents = null;
 
-        File leagueDirectory;
+        Path leagueDirectory;
         try {
             leagueDirectory = getLeagueDirectory();
         } catch (FileNotFoundException e) {
-            LOGGER.error("Exception caught: ", e);
+            LOGGER.error(e.getMessage(), e);
             return "";
         }
 
-        Path originalLockFile = leagueDirectory.toPath().resolve("lockfile");
-        Path lockfile = leagueDirectory.toPath().resolve("lockfile.temp");
+        Path originalLockFile = leagueDirectory.resolve("lockfile");
+        Path tempLockFile = leagueDirectory.resolve("lockfile.temp");
         try {
-            Files.copy(originalLockFile, lockfile, REPLACE_EXISTING);
+            Files.copy(originalLockFile, tempLockFile, REPLACE_EXISTING);
         } catch (IOException e) {
-            LOGGER.error("Exception caught: ", e);
+            LOGGER.error(e.getMessage(), e);
         }
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(lockfile.toFile()))) {
+        try (BufferedReader reader = Files.newBufferedReader(tempLockFile)) {
             lockfileContents = reader.readLine();
         } catch (Exception e) {
-            LOGGER.error("Exception caught: ", e);
+            LOGGER.error(e.getMessage(), e);
         }
 
         try {
-            Files.delete(lockfile);
+            Files.delete(tempLockFile);
         } catch (IOException e) {
-            LOGGER.error("Exception caught: ", e);
+            LOGGER.error(e.getMessage(), e);
         }
 
         if (lockfileContents == null) {
@@ -67,27 +71,27 @@ public class Utils {
         }
     }
 
-    @NotNull
-    public static File getLeagueDirectory() throws FileNotFoundException {
+    public static Path getLeagueDirectory() throws FileNotFoundException {
         RegPath p1 = new RegPath(WinReg.HKEY_CURRENT_USER, "Software\\Riot Games\\RADS");
         RegPath p2 = new RegPath(WinReg.HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Riot Games\\RADS");
         RegPath p3 = new RegPath(WinReg.HKEY_LOCAL_MACHINE, "SOFTWARE\\Riot Games\\RADS");
         RegPath[] paths = {p1, p2, p3};
         for (RegPath path : paths) {
             if (Advapi32Util.registryValueExists(path.hkey, path.key, path.value)) {
-                File directory = new File(Advapi32Util.registryGetStringValue(path.hkey, path.key, path.value)).getParentFile();
-                if (directory.exists()) {
+                Path directory = Paths.get(Advapi32Util.registryGetStringValue(path.hkey, path.key, path.value))
+                        .getParent(); // We call getParent else we get the RADS folder
+                if (Files.exists(directory)) {
                     return directory;
                 }
             }
         }
 
-        File directory = new File("C:\\Riot Games\\League of Legends");
-        if (directory.exists()) {
+        Path directory = Paths.get("C:\\Riot Games\\League of Legends");
+        if (Files.exists(directory)) {
             return directory;
         }
 
-        throw new FileNotFoundException("Impossible de trouver le dossier LoL !");
+        throw new FileNotFoundException("Could not find the League of Legends directory!");
     }
 
     /**
@@ -135,10 +139,10 @@ public class Utils {
         // Download all summoner spells images and write them to pngs
         SummonerSpells spells = SummonerSpells.get();
         for (SummonerSpell spell : spells) {
-            File file = new File(imgFolderPath + "icon/spell/" + spell.getId() + ".png");
+            Path path = Paths.get(imgFolderPath + "icon/spell/" + spell.getId() + ".png");
             try {
-                file.getParentFile().mkdirs();
-                ImageIO.write(spell.getImage().get(), "png", file);
+                Files.createDirectories(path.getParent());
+                ImageIO.write(spell.getImage().get(), "png", Files.newOutputStream(path));
             } catch (IOException e) {
                 LOGGER.error(e.getMessage(), e);
             }
@@ -147,10 +151,10 @@ public class Utils {
         // Download all champion icons and write them to pngs
         Champions allChampions = Champions.get();
         for (Champion champion : allChampions) {
-            File file = new File(imgFolderPath + "icon/champion/icon_" + champion.getKey() + ".png");
+            Path path = Paths.get(imgFolderPath + "icon/champion/icon_" + champion.getKey() + ".png");
             try {
-                file.getParentFile().mkdirs();
-                ImageIO.write(champion.getImage().get(), "png", file);
+                Files.createDirectories(path.getParent());
+                ImageIO.write(champion.getImage().get(), "png", Files.newOutputStream(path));
             } catch (IOException e) {
                 LOGGER.error(e.getMessage(), e);
             }
@@ -165,9 +169,9 @@ public class Utils {
         try (Response response = client.newCall(request).execute()) {
             if (response.code() == 200 && response.body() != null) {
                 InputStream is = response.body().byteStream();
-                File file = new File(imgFolderPath + "icon/champion/icon_None.png");
+                Path path = Paths.get(imgFolderPath, "icon/champion/icon_None.png");
                 BufferedImage img = ImageIO.read(is);
-                ImageIO.write(img, "png", file);
+                ImageIO.write(img, "png", Files.newOutputStream(path));
             }
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
@@ -182,10 +186,10 @@ public class Utils {
             try (Response response = client.newCall(request).execute()) {
                 if (response.code() == 200 && response.body() != null) {
                     InputStream is = response.body().byteStream();
-                    File file = new File(imgFolderPath + "splash/" + championKey + ".png");
-                    file.getParentFile().mkdirs();
+                    Path path = Paths.get(imgFolderPath + "splash/" + championKey + ".png");
+                    Files.createDirectories(path.getParent());
                     BufferedImage img = ImageIO.read(is);
-                    ImageIO.write(img, "png", file);
+                    ImageIO.write(img, "png", Files.newOutputStream(path));
                 }
             } catch (IOException e) {
                 LOGGER.error(e.getMessage(), e);

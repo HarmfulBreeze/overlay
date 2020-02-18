@@ -21,22 +21,22 @@ public class LockfileMonitor implements Runnable {
 
     @Override
     public void run() {
-        Path leagueFolderPath;
+        Path leagueFolder;
         try {
             this.watchService = FileSystems.getDefault().newWatchService();
-            leagueFolderPath = Utils.getLeagueDirectory().toPath();
-            leagueFolderPath.register(this.watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
+            leagueFolder = Utils.getLeagueDirectory();
+            leagueFolder.register(this.watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
         } catch (IOException e) {
-            LOGGER.error("Exception caught: ", e);
+            LOGGER.error(e.getMessage(), e);
             return;
         }
 
-        Path lockfilePath = leagueFolderPath.resolve("lockfile");
+        Path lockfilePath = leagueFolder.resolve("lockfile");
 
         LOGGER.info("Welcome! Awaiting connection to the game...");
 
         // On vérifie si le jeu est déjà démarré, si oui, se connecter directement
-        if (lockfilePath.toFile().exists() && !Utils.readLockFile().isEmpty()) {
+        if (Files.exists(lockfilePath)) {
             String lockfileContent = Utils.readLockFile();
             if (!lockfileContent.isEmpty()) {
                 this.leagueStarted = true;
@@ -73,7 +73,7 @@ public class LockfileMonitor implements Runnable {
                 key.reset();
             }
         } catch (InterruptedException e) {
-            LOGGER.error("Exception caught: ", e);
+            LOGGER.error(e.getMessage(), e);
             Thread.currentThread().interrupt();
         } catch (ClosedWatchServiceException e) {
             // Will be thrown when LockfileMonitor.stop() is called.
