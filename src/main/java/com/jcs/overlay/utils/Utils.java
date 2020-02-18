@@ -199,10 +199,8 @@ public class Utils {
 
     public static void updateLatestPatchFile() {
         String latestVersion = Versions.get().get(0);
-        Config newConfig = SettingsManager.getManager().getConfig()
-                .withValue("debug.latestPatch", ConfigValueFactory.fromAnyRef(latestVersion))
-                .atPath("overlay");
-        SettingsManager.getManager().updateConfig(newConfig);
+        SettingsManager.getManager().updateValue("debug.latestPatch",
+                ConfigValueFactory.fromAnyRef(latestVersion));
         SettingsManager.getManager().writeConfig();
     }
 }

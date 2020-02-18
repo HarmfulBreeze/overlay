@@ -1,9 +1,6 @@
 package com.jcs.overlay.utils;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigException;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigRenderOptions;
+import com.typesafe.config.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +44,7 @@ public final class SettingsManager {
             this.logger.error(e.getMessage(), e);
             effectiveConfig = ConfigFactory.load();
         }
-        this.config = effectiveConfig;
+        this.config = effectiveConfig.getConfig("overlay");
     }
 
     private static class Holder {
@@ -59,17 +56,18 @@ public final class SettingsManager {
     }
 
     public Config getConfig() {
-        return this.config.getConfig("overlay");
+        return this.config;
     }
 
-    public void updateConfig(Config newConfig) {
-        this.config = newConfig;
+    public void updateValue(String path, ConfigValue value) {
+        this.config = this.config.withValue(path, value);
     }
 
     public void writeConfig() {
         try {
-            Files.write(this.configPath, this.config.root()
-                    .render(ConfigRenderOptions.defaults().setOriginComments(false).setComments(false))
+            Files.write(this.configPath, this.config.atPath("overlay")
+                    .root()
+                    .render(ConfigRenderOptions.defaults().setOriginComments(false).setComments(true))
                     .getBytes()
             );
         } catch (IOException e) {
