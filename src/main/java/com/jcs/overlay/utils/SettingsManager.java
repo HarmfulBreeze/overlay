@@ -22,10 +22,8 @@ public final class SettingsManager {
         if (!Files.exists(this.configPath)) {
             this.logger.warn("Config file could not be found, recreating one.");
             try {
-                Files.createFile(this.configPath);
                 ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                Path path = Paths.get(classLoader.getResource("application.conf").toURI());
-                Files.write(this.configPath, Files.readAllBytes(path));
+                Files.copy(classLoader.getResourceAsStream("application.conf"), this.configPath);
             } catch (Exception e) {
                 this.logger.error(e.getMessage(), e);
             }
