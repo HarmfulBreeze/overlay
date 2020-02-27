@@ -7,7 +7,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.*;
 
-import static java.nio.file.StandardWatchEventKinds.*;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
 public class LockfileMonitor implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(LockfileMonitor.class);
@@ -21,11 +22,12 @@ public class LockfileMonitor implements Runnable {
 
     @Override
     public void run() {
-        Path leagueFolder;
+        LOGGER.info("Welcome! Awaiting connection to the game...");
+
+        Path leagueFolder = Utils.getLeagueDirectory();
         try {
             this.watchService = FileSystems.getDefault().newWatchService();
-            leagueFolder = Utils.getLeagueDirectory();
-            leagueFolder.register(this.watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
+            leagueFolder.register(this.watchService, ENTRY_MODIFY, ENTRY_DELETE);
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
             return;
@@ -33,12 +35,10 @@ public class LockfileMonitor implements Runnable {
 
         Path lockfilePath = leagueFolder.resolve("lockfile");
 
-        LOGGER.info("Welcome! Awaiting connection to the game...");
-
         // On vérifie si le jeu est déjà démarré, si oui, se connecter directement
         if (Files.exists(lockfilePath)) {
-            String lockfileContent = Utils.readLockFile();
-            if (!lockfileContent.isEmpty()) {
+            String lockfileContent = Utils.readLockfile(lockfilePath);
+            if (lockfileContent != null && !lockfileContent.isEmpty()) {
                 this.leagueStarted = true;
                 App.getApp().onLeagueStart(lockfileContent);
             } else {
@@ -59,7 +59,7 @@ public class LockfileMonitor implements Runnable {
                             continue;
                         }
                         App.getApp().onLeagueStop();
-                        lockfileContent = Utils.readLockFile();
+                        lockfileContent = Utils.readLockfile(lockfilePath);
                         App.getApp().onLeagueStart(lockfileContent);
                         this.setLeagueStarted(true);
                     }
