@@ -513,6 +513,14 @@ public class WSClient extends WebSocketClient {
                     SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 2, newSpell2Id);
                     this.sendMessagesToWebapp(SetSummonerSpellsMessage.class, msg);
                 }
+                // Picks are over, so we need to watch for champion trades
+                if (oldActions.equals(newActions)) {
+                    if (newPs.getChampionId() != oldPs.getChampionId()) {
+                        SetPickIntentMessage msg = new SetPickIntentMessage(adjustedCellId,
+                                Champion.withId(newPs.getChampionId()).get().getKey());
+                        this.sendMessagesToWebapp(SetPickIntentMessage.class, msg);
+                    }
+                }
             }
         }
 
