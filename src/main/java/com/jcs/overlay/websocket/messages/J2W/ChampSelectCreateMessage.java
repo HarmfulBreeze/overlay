@@ -5,11 +5,13 @@ import java.util.List;
 public class ChampSelectCreateMessage {
     private final TeamNames teamNames;
     private final TeamColors teamColors;
+    private final boolean timerIsInStreamRectangle;
     private final String messageType = "ChampSelectCreate";
 
-    public ChampSelectCreateMessage(TeamNames teamNames, TeamColors teamColors) {
+    public ChampSelectCreateMessage(TeamNames teamNames, TeamColors teamColors, boolean timerIsInStreamRectangle) {
         this.teamNames = teamNames;
         this.teamColors = teamColors;
+        this.timerIsInStreamRectangle = timerIsInStreamRectangle;
     }
 
     public static class TeamNames {

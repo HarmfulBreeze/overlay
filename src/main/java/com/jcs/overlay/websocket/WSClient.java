@@ -217,7 +217,6 @@ public class WSClient extends WebSocketClient {
         this.receivedSummonerNamesUpdate = false;
         this.bans = new Bans();
 
-        // TODO: make it customizable
         Config config = SettingsManager.getManager().getConfig();
         String team100Name = config.getString("teams.blue.name");
         String team200Name = config.getString("teams.red.name");
@@ -225,7 +224,8 @@ public class WSClient extends WebSocketClient {
         List<Integer> team200Color = config.getIntList("teams.red.rgbColor");
         TeamNames teamNames = new TeamNames(team100Name, team200Name);
         TeamColors teamColors = new TeamColors(team100Color, team200Color);
-        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors);
+        boolean timerIsInStreamRectangle = config.getBoolean("webapp.timerIsInStreamRectangle");
+        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors, timerIsInStreamRectangle);
         this.sendMessagesToWebapp(ChampSelectCreateMessage.class, createMessage);
 
         List<String> championKeys = new ArrayList<>();
@@ -682,14 +682,16 @@ public class WSClient extends WebSocketClient {
     }
 
     private void handleChampSelectDelete() {
-        this.summonerNamesCallId = null;
-        this.playerList.clear();
-        this.previousSession = null;
-        // Send the request to the web component asking to close champion select.
-        LOGGER.info("Champion select has ended.");
+        if (this.previousSession != null) {
+            this.summonerNamesCallId = null;
+            this.playerList.clear();
+            this.previousSession = null;
+            // Send the request to the web component asking to close champion select.
+            LOGGER.info("Champion select has ended.");
 
-        ChampSelectDeleteMessage deleteMessage = new ChampSelectDeleteMessage();
-        this.sendMessagesToWebapp(ChampSelectDeleteMessage.class, deleteMessage);
+            ChampSelectDeleteMessage deleteMessage = new ChampSelectDeleteMessage();
+            this.sendMessagesToWebapp(ChampSelectDeleteMessage.class, deleteMessage);
+        }
     }
 
     /**
