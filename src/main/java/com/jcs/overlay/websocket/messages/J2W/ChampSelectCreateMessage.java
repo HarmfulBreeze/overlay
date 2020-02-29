@@ -1,17 +1,20 @@
 package com.jcs.overlay.websocket.messages.J2W;
 
+import com.jcs.overlay.utils.SettingsManager;
+import com.typesafe.config.Config;
+
 import java.util.List;
 
 public class ChampSelectCreateMessage {
     private final TeamNames teamNames;
     private final TeamColors teamColors;
-    private final boolean timerIsInStreamRectangle;
+    private final WebappConfig webappConfig;
     private final String messageType = "ChampSelectCreate";
 
-    public ChampSelectCreateMessage(TeamNames teamNames, TeamColors teamColors, boolean timerIsInStreamRectangle) {
+    public ChampSelectCreateMessage(TeamNames teamNames, TeamColors teamColors, WebappConfig webappConfig) {
         this.teamNames = teamNames;
         this.teamColors = teamColors;
-        this.timerIsInStreamRectangle = timerIsInStreamRectangle;
+        this.webappConfig = webappConfig;
     }
 
     public static class TeamNames {
@@ -48,6 +51,22 @@ public class ChampSelectCreateMessage {
             this.red = red;
             this.green = green;
             this.blue = blue;
+        }
+    }
+
+    public static class WebappConfig {
+        private final boolean championSplashesEnabled;
+        private final boolean timerIsInStreamRectangle;
+
+        public WebappConfig() {
+            Config config = SettingsManager.getManager().getConfig();
+            this.championSplashesEnabled = config.getBoolean("webapp.championSplashesEnabled");
+            this.timerIsInStreamRectangle = config.getBoolean("webapp.timerIsInStreamRectangle");
+        }
+
+        public WebappConfig(boolean championSplashesEnabled, boolean timerIsInStreamRectangle) {
+            this.championSplashesEnabled = championSplashesEnabled;
+            this.timerIsInStreamRectangle = timerIsInStreamRectangle;
         }
     }
 }

@@ -42,6 +42,7 @@ import java.util.regex.Pattern;
 
 import static com.jcs.overlay.websocket.messages.C2J.champselect.Action.ActionType.*;
 import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.TeamColors;
+import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.WebappConfig;
 
 public class WSClient extends WebSocketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
@@ -224,8 +225,8 @@ public class WSClient extends WebSocketClient {
         List<Integer> team200Color = config.getIntList("teams.red.rgbColor");
         TeamNames teamNames = new TeamNames(team100Name, team200Name);
         TeamColors teamColors = new TeamColors(team100Color, team200Color);
-        boolean timerIsInStreamRectangle = config.getBoolean("webapp.timerIsInStreamRectangle");
-        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors, timerIsInStreamRectangle);
+        WebappConfig webappConfig = new WebappConfig();
+        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors, webappConfig);
         this.sendMessagesToWebapp(ChampSelectCreateMessage.class, createMessage);
 
         List<String> championKeys = new ArrayList<>();
