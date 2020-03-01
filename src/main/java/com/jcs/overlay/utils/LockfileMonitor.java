@@ -1,6 +1,6 @@
-package com.jcs.overlay;
+package com.jcs.overlay.utils;
 
-import com.jcs.overlay.utils.Utils;
+import com.jcs.overlay.App;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,12 +13,11 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 public class LockfileMonitor implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(LockfileMonitor.class);
     private WatchService watchService;
+    private boolean leagueStarted;
 
     public synchronized void setLeagueStarted(boolean leagueStarted) {
         this.leagueStarted = leagueStarted;
     }
-
-    private boolean leagueStarted;
 
     @Override
     public void run() {
@@ -80,7 +79,7 @@ public class LockfileMonitor implements Runnable {
         }
     }
 
-    void stop() {
+    public void stop() {
         try {
             this.watchService.close();
         } catch (IOException e) {

@@ -17,12 +17,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
+import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.stream.Collectors;
 
@@ -31,6 +38,7 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public class Utils {
     private static final Object LOCK = new Object();
+    private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class);
 
     private Utils() {
         throw new UnsupportedOperationException("Utility class");
@@ -49,8 +57,6 @@ public class Utils {
 
         return lockfileContents;
     }
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class);
 
     @NotNull
     public static Path getLeagueDirectory() {
@@ -112,10 +118,31 @@ public class Utils {
         return split;
     }
 
-    private interface psapi extends StdCallLibrary {
-        psapi INSTANCE = Native.load("psapi", psapi.class);
+    /**
+     * @return an {@link SSLContext} permissive enough to allow the League Client self-signed certificate.
+     * @throws NoSuchAlgorithmException if no {@link Provider} was found for handling TLS.
+     * @throws KeyManagementException   if {@code SSLContext} initialization failed.
+     */
+    @NotNull
+    public static SSLContext getSslContext() throws NoSuchAlgorithmException, KeyManagementException {
+        TrustManager[] trustAllCerts = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return new X509Certificate[]{}; // return an empty accepted issuers array
+                    }
 
-        int GetModuleFileNameExA(WinNT.HANDLE hProcess, Pointer hModule, byte[] lpFilename, int nSize);
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                        // do nothing, trust client ssl auth
+                    }
+
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                        // do nothing, trust server ssl auth
+                    }
+                }
+        };
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustAllCerts, null);
+        return sslContext;
     }
 
     @NotNull
@@ -208,5 +235,11 @@ public class Utils {
         SettingsManager.getManager().updateValue("debug.latestPatch",
                 ConfigValueFactory.fromAnyRef(latestVersion));
         SettingsManager.getManager().writeConfig();
+    }
+
+    private interface psapi extends StdCallLibrary {
+        psapi INSTANCE = Native.load("psapi", psapi.class);
+
+        int GetModuleFileNameExA(WinNT.HANDLE hProcess, Pointer hModule, byte[] lpFilename, int nSize);
     }
 }

@@ -11,9 +11,8 @@ import java.nio.file.Paths;
 
 public final class SettingsManager {
     private final Logger logger = LoggerFactory.getLogger(SettingsManager.class);
-
-    private Config config;
     private final Path configPath = Paths.get(System.getProperty("user.dir") + "/config.conf");
+    private Config config;
 
     private SettingsManager() {
         Config effectiveConfig;
@@ -45,10 +44,6 @@ public final class SettingsManager {
         this.config = effectiveConfig.getConfig("overlay");
     }
 
-    private static class Holder {
-        private static final SettingsManager instance = new SettingsManager();
-    }
-
     public static SettingsManager getManager() {
         return Holder.instance;
     }
@@ -71,5 +66,9 @@ public final class SettingsManager {
         } catch (IOException e) {
             this.logger.error(e.getMessage(), e);
         }
+    }
+
+    private static class Holder {
+        private static final SettingsManager instance = new SettingsManager();
     }
 }

@@ -25,6 +25,7 @@ public class Bans {
 
     /**
      * Adds a ban to the array. You should first check if it can be added with {@link Bans#canAdd(int)}.
+     *
      * @param teamId         1 = blue, 2 = red
      * @param adjustedCellId The adjustedCellId of the banning actor.
      * @param championKey    The {@link Champion} key to be added.

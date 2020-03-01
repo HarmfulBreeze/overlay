@@ -63,41 +63,16 @@ public class WSClient extends WebSocketClient {
     private String chatCallId = null;
     private Bans bans;
 
-    // Accept self-signed certificate. (if anyone has a better solution, please PR)
     public WSClient(URI uri, Map<String, String> httpHeaders) {
         super(uri, httpHeaders);
-        TrustManager[] trustAllCerts = new TrustManager[]{
-                new X509TrustManager() {
-                    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                        return null;
-                    }
-
-                    public void checkClientTrusted(
-                            java.security.cert.X509Certificate[] certs, String authType) {
-                    }
-
-                    public void checkServerTrusted(
-                            java.security.cert.X509Certificate[] certs, String authType) {
-                    }
-                }
-        };
-        SSLContext sslContext;
         try {
-            sslContext = SSLContext.getInstance("TLS");
-        } catch (NoSuchAlgorithmException e) {
-            LOGGER.error("Exception caught: ", e);
-            Thread.currentThread().interrupt();
-            return;
+            SSLContext sslContext = Utils.getSslContext();
+            SSLSocketFactory factory = sslContext.getSocketFactory();
+            this.setSocketFactory(factory);
+        } catch (NoSuchAlgorithmException | KeyManagementException e) {
+            LOGGER.error("Could not get a proper SSL context!", e);
+            System.exit(1);
         }
-
-        try {
-            sslContext.init(null, trustAllCerts, null);
-        } catch (KeyManagementException e) {
-            LOGGER.error("Exception caught: ", e);
-        }
-        SSLSocketFactory factory = sslContext.getSocketFactory();
-
-        this.setSocketFactory(factory);
     }
 
     /**

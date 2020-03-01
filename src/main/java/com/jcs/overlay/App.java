@@ -1,6 +1,7 @@
 package com.jcs.overlay;
 
 import com.jcs.overlay.cef.CefManager;
+import com.jcs.overlay.utils.LockfileMonitor;
 import com.jcs.overlay.utils.SettingsManager;
 import com.jcs.overlay.utils.SettingsWatcher;
 import com.jcs.overlay.utils.Utils;
@@ -145,7 +146,7 @@ public class App {
         return this.wsClient;
     }
 
-    void onLeagueStart(String lockfileContent) {
+    public void onLeagueStart(String lockfileContent) {
         LOGGER.debug("Client launched!");
 
         String[] parts = Utils.parseLockfile(lockfileContent);
@@ -168,7 +169,7 @@ public class App {
         this.startAutoReconnect();
     }
 
-    void onLeagueStop() {
+    public void onLeagueStop() {
         if (this.autoReconnect != null) {
             this.stopAutoReconnect();
             LOGGER.debug("Client closed.");
