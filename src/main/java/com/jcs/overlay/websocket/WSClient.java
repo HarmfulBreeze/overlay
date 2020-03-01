@@ -2,6 +2,8 @@ package com.jcs.overlay.websocket;
 
 import com.jcs.overlay.App;
 import com.jcs.overlay.utils.SettingsManager;
+import com.jcs.overlay.utils.Uint64Adapter;
+import com.jcs.overlay.utils.Utils;
 import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
 import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
@@ -28,8 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.ConnectException;
@@ -46,10 +46,9 @@ import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.We
 
 public class WSClient extends WebSocketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
-
     private final WebSocketServer wsServer = App.getApp().getWsServer();
-
     private final Moshi moshi = new Moshi.Builder()
+            .add(new Uint64Adapter())
             .add(Timer.Phase.class, EnumJsonAdapter.create(Timer.Phase.class).withUnknownFallback(Timer.Phase.UNKNOWN))
             .add(Action.ActionType.class, EnumJsonAdapter.create(Action.ActionType.class).withUnknownFallback(UNKNOWN))
             .build();
