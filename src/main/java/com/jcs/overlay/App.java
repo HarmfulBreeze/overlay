@@ -10,6 +10,7 @@ import com.jcs.overlay.websocket.WSClient;
 import com.jcs.overlay.websocket.WSServer;
 import com.merakianalytics.orianna.Orianna;
 import com.merakianalytics.orianna.types.core.staticdata.Champions;
+import org.cef.CefApp;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ public class App {
     private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
     private static App APP;
     private static boolean guiEnabled;
+    private static boolean isClosed = false;
     private final SettingsWatcher settingsWatcher;
     private final LockfileMonitor lockfileMonitor;
     private final Thread lockfileMonitorThread;
@@ -83,9 +85,16 @@ public class App {
         this.cefManager = guiEnabled ? new CefManager() : null;
     }
 
-    synchronized public void stop() {
+    synchronized public void stop(boolean force) {
+        if (isClosed) {
+            return;
+        }
+
         LOGGER.info("Shutting down...");
 
+        if (CefApp.getState() != CefApp.CefAppState.TERMINATED) {
+            CefApp.getInstance().dispose();
+        }
         this.cefManager.getMainFrame().dispose();
 
         this.settingsWatcher.stop();
@@ -135,7 +144,13 @@ public class App {
             }
         }
 
+        isClosed = true;
+
         LOGGER.info("Successfully shut down. Bye!");
+
+        if (force) {
+            System.exit(0);
+        }
     }
 
     public LockfileMonitor getLockfileMonitor() {

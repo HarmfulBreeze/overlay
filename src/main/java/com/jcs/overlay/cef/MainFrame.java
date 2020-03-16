@@ -49,7 +49,7 @@ public class MainFrame extends JFrame {
             public void stateHasChanged(CefAppState state) {
                 // Shutdown the app if the native CEF part is terminated
                 if (state == CefApp.CefAppState.TERMINATED) {
-                    App.getApp().stop();
+                    App.getApp().stop(false);
                 }
             }
         });

@@ -1,5 +1,6 @@
 package com.jcs.overlay.websocket;
 
+import com.jcs.overlay.App;
 import com.squareup.moshi.Moshi;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -7,6 +8,7 @@ import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.BindException;
 import java.net.InetSocketAddress;
 
 public class WSServer extends WebSocketServer {
@@ -34,7 +36,11 @@ public class WSServer extends WebSocketServer {
 
     @Override
     public void onError(WebSocket conn, Exception ex) {
-        LOGGER.error("An error has occurred.", ex);
+        if (ex instanceof BindException) {
+            App.getApp().stop(true);
+        } else {
+            LOGGER.error("An error has occurred.", ex);
+        }
     }
 
     @Override
