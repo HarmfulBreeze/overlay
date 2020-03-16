@@ -11,7 +11,7 @@ import java.nio.file.Paths;
 
 public final class SettingsManager {
     private final Logger logger = LoggerFactory.getLogger(SettingsManager.class);
-    private final Path configPath = Paths.get(System.getProperty("user.dir") + "/config.conf");
+    private Path configPath = Paths.get(System.getProperty("user.dir") + "/config.conf");
     private Config config;
 
     private SettingsManager() {
@@ -32,14 +32,17 @@ public final class SettingsManager {
         Config fileConfig = ConfigFactory.parseFile(this.configPath.toFile());
         try {
             fileConfig.checkValid(ConfigFactory.defaultApplication(), "overlay");
+            TimerStyle.checkTimerStyle(fileConfig);
             effectiveConfig = ConfigFactory.load(fileConfig);
         } catch (ConfigException.ValidationFailed e) {
             this.logger.error("Config file is invalid, using default configuration. If you wish to recreate the file," +
                     " simply delete it and it will be recreated on next startup.");
             effectiveConfig = ConfigFactory.load();
+            this.configPath = null;
         } catch (ConfigException e) {
             this.logger.error(e.getMessage(), e);
             effectiveConfig = ConfigFactory.load();
+            this.configPath = null;
         }
         this.config = effectiveConfig.getConfig("overlay");
     }
@@ -57,14 +60,18 @@ public final class SettingsManager {
     }
 
     public void writeConfig() {
-        try {
-            Files.write(this.configPath, this.config.atPath("overlay")
-                    .root()
-                    .render(ConfigRenderOptions.defaults().setOriginComments(false).setComments(true))
-                    .getBytes()
-            );
-        } catch (IOException e) {
-            this.logger.error(e.getMessage(), e);
+        if (this.configPath == null) {
+            this.logger.warn("Did not write configuration as the default config is loaded.");
+        } else {
+            try {
+                Files.write(this.configPath, this.config.atPath("overlay")
+                        .root()
+                        .render(ConfigRenderOptions.defaults().setOriginComments(false).setComments(true))
+                        .getBytes()
+                );
+            } catch (IOException e) {
+                this.logger.error(e.getMessage(), e);
+            }
         }
     }
 

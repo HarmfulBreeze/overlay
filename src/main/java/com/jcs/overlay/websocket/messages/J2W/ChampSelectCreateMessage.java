@@ -1,6 +1,7 @@
 package com.jcs.overlay.websocket.messages.J2W;
 
 import com.jcs.overlay.utils.SettingsManager;
+import com.jcs.overlay.utils.TimerStyle;
 import com.typesafe.config.Config;
 
 import java.util.List;
@@ -55,18 +56,15 @@ public class ChampSelectCreateMessage {
     }
 
     public static class WebappConfig {
+        private static final transient Config CONFIG = SettingsManager.getManager().getConfig();
         private final boolean championSplashesEnabled;
-        private final boolean timerIsInStreamRectangle;
+        private final String teamNamesFontSize;
+        private final TimerStyle timerStyle;
 
         public WebappConfig() {
-            Config config = SettingsManager.getManager().getConfig();
-            this.championSplashesEnabled = config.getBoolean("webapp.championSplashesEnabled");
-            this.timerIsInStreamRectangle = config.getBoolean("webapp.timerIsInStreamRectangle");
-        }
-
-        public WebappConfig(boolean championSplashesEnabled, boolean timerIsInStreamRectangle) {
-            this.championSplashesEnabled = championSplashesEnabled;
-            this.timerIsInStreamRectangle = timerIsInStreamRectangle;
+            this.championSplashesEnabled = CONFIG.getBoolean("webapp.championSplashesEnabled");
+            this.teamNamesFontSize = CONFIG.getString("webapp.teamNamesFontSize");
+            this.timerStyle = TimerStyle.getTimerStyle(CONFIG.getString("webapp.timer.style"));
         }
     }
 }
