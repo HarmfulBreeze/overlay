@@ -4,7 +4,9 @@ import com.jcs.overlay.utils.SettingsManager;
 import com.jcs.overlay.utils.TimerStyle;
 import com.typesafe.config.Config;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ChampSelectCreateMessage {
     private final TeamNames teamNames;
@@ -38,8 +40,8 @@ public class ChampSelectCreateMessage {
         }
 
         public TeamColors(List<Integer> team100Color, List<Integer> team200Color) {
-            this.team100Color = new Color(team100Color.get(0), team100Color.get(1), team100Color.get(2));
-            this.team200Color = new Color(team200Color.get(0), team200Color.get(1), team200Color.get(2));
+            this.team100Color = new Color(team100Color);
+            this.team200Color = new Color(team200Color);
         }
     }
 
@@ -53,6 +55,12 @@ public class ChampSelectCreateMessage {
             this.green = green;
             this.blue = blue;
         }
+
+        public Color(List<Integer> colorList) {
+            this.red = colorList.get(0);
+            this.green = colorList.get(1);
+            this.blue = colorList.get(2);
+        }
     }
 
     public static class WebappConfig {
@@ -60,11 +68,22 @@ public class ChampSelectCreateMessage {
         private final boolean championSplashesEnabled;
         private final String teamNamesFontSize;
         private final TimerStyle timerStyle;
+        private final Map<String, Color> fontColors;
 
         public WebappConfig() {
             this.championSplashesEnabled = CONFIG.getBoolean("webapp.championSplashesEnabled");
             this.teamNamesFontSize = CONFIG.getString("webapp.teamNamesFontSize");
             this.timerStyle = TimerStyle.getTimerStyle(CONFIG.getString("webapp.timer.style"));
+            this.fontColors = new HashMap<>();
+
+            List<Integer> banColorList = CONFIG.getIntList("webapp.fontColors.bans");
+            List<Integer> picksColorList = CONFIG.getIntList("webapp.fontColors.picks");
+            List<Integer> teamNamesColorList = CONFIG.getIntList("webapp.fontColors.teamNames");
+            List<Integer> timerColorList = CONFIG.getIntList("webapp.fontColors.timer");
+            this.fontColors.put("bans", new Color(banColorList));
+            this.fontColors.put("picks", new Color(picksColorList));
+            this.fontColors.put("teamNames", new Color(teamNamesColorList));
+            this.fontColors.put("timer", new Color(timerColorList));
         }
     }
 }
