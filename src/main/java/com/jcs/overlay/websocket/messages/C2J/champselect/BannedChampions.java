@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 
+@SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class BannedChampions {
     List<Integer> myTeamBans;
     List<Integer> theirTeamBans;

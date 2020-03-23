@@ -4,6 +4,7 @@ import com.squareup.moshi.Json;
 
 import java.util.Objects;
 
+@SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class Action {
     private long id;
     private long actorCellId;

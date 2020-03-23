@@ -2,6 +2,7 @@ package com.jcs.overlay.websocket.messages.C2J.champselect;
 
 import java.util.List;
 
+@SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class Session {
     List<List<Action>> actions;
     boolean allowBattleBoost;

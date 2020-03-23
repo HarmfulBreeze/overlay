@@ -2,6 +2,7 @@ package com.jcs.overlay.websocket.messages.C2J.champselect;
 
 import java.util.Objects;
 
+@SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class Timer {
     private long timeLeftInPhase;
     private long adjustedTimeLeftInPhase;

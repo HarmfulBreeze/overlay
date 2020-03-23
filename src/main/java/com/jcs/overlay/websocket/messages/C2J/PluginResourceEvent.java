@@ -2,6 +2,7 @@ package com.jcs.overlay.websocket.messages.C2J;
 
 import com.squareup.moshi.Json;
 
+@SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class PluginResourceEvent {
     private String uri;
     private PluginResourceEventType eventType;

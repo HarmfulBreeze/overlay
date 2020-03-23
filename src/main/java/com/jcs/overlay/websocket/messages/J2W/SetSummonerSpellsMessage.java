@@ -1,5 +1,6 @@
 package com.jcs.overlay.websocket.messages.J2W;
 
+@SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class SetSummonerSpellsMessage {
     private final String messageType = "SetSummonerSpells";
     private final long cellId;

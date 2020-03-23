@@ -1,5 +1,6 @@
 package com.jcs.overlay.websocket.messages.J2W;
 
+@SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class NewBanMessage {
     private final String messageType = "NewBan";
     private final String championKey;
