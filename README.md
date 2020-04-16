@@ -1,6 +1,8 @@
 # Overlay
 ###### A simple program to display champion select information in streams
 
+![Screenshot](overlay_screenshot.png "Screenshot")
+
 ## Requirements
 - **Windows**
 - Java (min. Java 8)
