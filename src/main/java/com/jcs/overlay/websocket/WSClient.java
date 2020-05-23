@@ -9,9 +9,11 @@ import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
 import com.jcs.overlay.websocket.messages.J2W.*;
 import com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.TeamNames;
+import com.merakianalytics.orianna.types.common.Region;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
 import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpell;
+import com.merakianalytics.orianna.types.core.staticdata.Versions;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
@@ -358,7 +360,7 @@ public class WSClient extends WebSocketClient {
                             SetBanPickMessage message1 = new SetBanPickMessage(player.getAdjustedCellId(), false, true);
                             this.sendMessagesToWebapp(SetBanPickMessage.class, message1);
                             if (action.getChampionId() != 0) {
-                                Champion champion = Champion.withId(action.getChampionId()).get();
+                                Champion champion = Champion.withId(action.getChampionId()).withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get();
                                 builder.append("Currently chosen: ").append(champion.getName());
 
                                 SetBanIntentMessage banIntentMessage = new SetBanIntentMessage(champion.getKey(), player.getAdjustedCellId());
@@ -374,7 +376,7 @@ public class WSClient extends WebSocketClient {
                             this.sendMessagesToWebapp(SetBanPickMessage.class, message1);
 
                             if (action.getChampionId() != 0) {
-                                Champion champion = Champion.withId(action.getChampionId()).get();
+                                Champion champion = Champion.withId(action.getChampionId()).withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get();
                                 builder.append("Currently chosen: ").append(champion.getName());
 
                                 SetPickIntentMessage msg2 = new SetPickIntentMessage(player.getAdjustedCellId(), champion.getKey());
@@ -409,7 +411,7 @@ public class WSClient extends WebSocketClient {
                                 String championName;
                                 String championKey;
                                 if (updatedAction.getChampionId() != 0) {
-                                    Champion champion = Champion.withId(updatedAction.getChampionId()).get();
+                                    Champion champion = Champion.withId(updatedAction.getChampionId()).withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get();
                                     championName = champion.getName();
                                     championKey = champion.getKey();
                                 } else {
@@ -454,8 +456,8 @@ public class WSClient extends WebSocketClient {
                 if (spell1Id != 0 && spell2Id != 0) { // if we have info on the enemy team sums
                     String summonerName = player.getSummonerName();
                     LOGGER.debug(summonerName + " has summoner spells "
-                            + SummonerSpell.withId(spell1Id.intValue()).get().getName()
-                            + " and " + SummonerSpell.withId(spell2Id.intValue()).get().getName());
+                            + SummonerSpell.withId(spell1Id.intValue()).withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get().getName()
+                            + " and " + SummonerSpell.withId(spell2Id.intValue()).withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get().getName());
 
                     long adjustedCellId = player.getAdjustedCellId();
                     SetSummonerSpellsMessage msg1 = new SetSummonerSpellsMessage(adjustedCellId, 1, spell1Id);
@@ -476,25 +478,17 @@ public class WSClient extends WebSocketClient {
                 long adjustedCellId = this.getAdjustedCellId(newPs.getCellId());
                 if (!newSpell1Id.equals(oldPs.getSpell1Id()) && newSpell1Id != 0) {
                     LOGGER.debug(summonerName + " changed summoner spell 1 to "
-                            + SummonerSpell.withId(newSpell1Id.intValue()).get().getName());
+                            + SummonerSpell.withId(newSpell1Id.intValue()).withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get().getName());
 
                     SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 1, newSpell1Id);
                     this.sendMessagesToWebapp(SetSummonerSpellsMessage.class, msg);
                 }
                 if (!newSpell2Id.equals(oldPs.getSpell2Id()) && newSpell2Id != 0) {
                     LOGGER.debug(summonerName + " changed summoner spell 2 to "
-                            + SummonerSpell.withId(newSpell2Id.intValue()).get().getName());
+                            + SummonerSpell.withId(newSpell2Id.intValue()).withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get().getName());
 
                     SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 2, newSpell2Id);
                     this.sendMessagesToWebapp(SetSummonerSpellsMessage.class, msg);
-                }
-                // Picks are over, so we need to watch for champion trades
-                if (oldActions.equals(newActions)) {
-                    if (newPs.getChampionId() != oldPs.getChampionId()) {
-                        SetPickIntentMessage msg = new SetPickIntentMessage(adjustedCellId,
-                                Champion.withId(newPs.getChampionId()).get().getKey());
-                        this.sendMessagesToWebapp(SetPickIntentMessage.class, msg);
-                    }
                 }
             }
         }
@@ -540,7 +534,7 @@ public class WSClient extends WebSocketClient {
 
         String championName, championKey;
         if (action.getChampionId() != 0) {
-            Champion champion = Champion.withId(action.getChampionId()).get();
+            Champion champion = Champion.withId(action.getChampionId()).withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get();
             championName = champion.getName();
             championKey = champion.getKey();
         } else { // Hack for no ban
