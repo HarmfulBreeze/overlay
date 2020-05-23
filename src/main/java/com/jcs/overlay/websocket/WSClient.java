@@ -57,7 +57,6 @@ public class WSClient extends WebSocketClient {
     private final List<Player> playerList = new ArrayList<>();
     private final List<SessionMessage> updateMessagesQueue = new ArrayList<>();
     private Session previousSession = null;
-    private boolean isFirstUpdate;
     private boolean receivedSummonerNamesUpdate;
     private boolean myTeamIsBlueTeam;
     private int previousActiveActionGroup = -1;
@@ -184,10 +183,9 @@ public class WSClient extends WebSocketClient {
         }
     }
 
-    private void handleChampSelectCreate(SessionMessage message) {
+    private void handleChampSelectCreate() {
         LOGGER.info("Champion select has started!");
-        this.previousSession = message.getSession();
-        this.isFirstUpdate = true;
+        this.previousSession = null;
         this.previousActiveActionGroup = -1;
         this.playerList.clear();
         this.updateMessagesQueue.clear();
@@ -282,7 +280,7 @@ public class WSClient extends WebSocketClient {
 
         switch (jsonMessage.getEventType()) {
             case CREATE:
-                this.handleChampSelectCreate(jsonMessage);
+                this.handleChampSelectCreate();
                 break;
             case UPDATE:
                 this.preHandleChampSelectUpdate(jsonMessage);
@@ -308,30 +306,33 @@ public class WSClient extends WebSocketClient {
 
     private void handleChampSelectUpdate(SessionMessage message) {
         Session session = message.getSession();
+        boolean isFirstUpdate = this.previousSession == null;
 
-        // Check if this we're spectating or not. Unused for now.
-        if (this.isFirstUpdate) {
+        List<List<Action>> newActions = session.getActions();
+        List<List<Action>> oldActions;
+        if (isFirstUpdate) { // First update
             if (session.isSpectating()) {
                 LOGGER.debug("Currently spectating the game.");
             } else {
                 LOGGER.debug("Not a spectator!");
             }
             this.myTeamIsBlueTeam = this.isMyTeamBlueTeam(session);
+            oldActions = null;
+        } else { // any other update
+            oldActions = this.previousSession.getActions();
         }
 
+        // Update the player list with the new player selections
         this.updatePlayerList(session);
 
-        List<List<Action>> oldActions = this.previousSession.getActions();
-        List<List<Action>> newActions = session.getActions();
-
+        // Get the current active action group, if -1 then newActions is null or empty
         int activeActionGroupIndex = this.getActiveActionGroupIndex(newActions);
-
         // Check if there are new actions
-        if ((!newActions.equals(oldActions) || this.isFirstUpdate) && activeActionGroupIndex != -1) {
+        if (!newActions.equals(oldActions) && activeActionGroupIndex != -1) {
             // Active action group changed
-            if (activeActionGroupIndex != this.previousActiveActionGroup) {
-                if (this.previousActiveActionGroup != -1) {
-                    // there is at least one newly completed action since that's why we changed active action group
+            if (isFirstUpdate || activeActionGroupIndex != this.previousActiveActionGroup) {
+                if (!isFirstUpdate) { // first update -> no oldActions
+                    // at least one newly completed action needs to be handled
                     List<Action> newlyCompletedActions = this.getNewlyCompletedActions(oldActions, newActions);
                     for (Action action : newlyCompletedActions) {
                         this.handleCompletedAction(action);
@@ -436,11 +437,11 @@ public class WSClient extends WebSocketClient {
         }
 
         Timer timer = session.getTimer();
-        Timer.Phase newPhase = timer.getPhase();
+        Timer.Phase timerPhase = timer.getPhase();
         // TODO: handle unknown phase better
-        if (newPhase != Timer.Phase.UNKNOWN) { // If phase is known, we can consider that we have info on the timer
-            if (newPhase != this.previousSession.getTimer().getPhase()) {
-                LOGGER.debug("New phase: " + newPhase);
+        if (timerPhase != Timer.Phase.UNKNOWN) { // If phase is known, we can consider that we have info on the timer
+            if (!isFirstUpdate && timerPhase != this.previousSession.getTimer().getPhase()) {
+                LOGGER.debug("New phase: " + timerPhase);
             }
 
             // Update timer in webapp
@@ -448,7 +449,8 @@ public class WSClient extends WebSocketClient {
             this.sendMessagesToWebapp(SetTimerMessage.class, setTimerMessage);
         }
 
-        if (this.isFirstUpdate) {
+        // Setup summoner spells and handle their changes
+        if (isFirstUpdate) {
             for (Player player : this.playerList) {
                 PlayerSelection ps = player.getPlayerSelection();
                 Long spell1Id = ps.getSpell1Id();
@@ -493,12 +495,25 @@ public class WSClient extends WebSocketClient {
             }
         }
 
+        // Picks are over, so we need to watch champion trades
+        if (timerPhase == Timer.Phase.FINALIZATION) {
+            List<PlayerSelection> oldPSelections = new ArrayList<>();
+            oldPSelections.addAll(this.previousSession.getMyTeam());
+            oldPSelections.addAll(this.previousSession.getTheirTeam());
+            for (int i = 0; i < this.playerList.size(); i++) {
+                PlayerSelection newPs = this.playerList.get(i).getPlayerSelection();
+                PlayerSelection oldPs = oldPSelections.get(i);
+                long adjustedCellId = this.getAdjustedCellId(newPs.getCellId());
+                if (newPs.getChampionId() != oldPs.getChampionId()) {
+                    SetPickIntentMessage msg = new SetPickIntentMessage(adjustedCellId,
+                            Champion.withId(newPs.getChampionId()).withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get().getKey());
+                    this.sendMessagesToWebapp(SetPickIntentMessage.class, msg);
+                }
+            }
+        }
 
         this.previousActiveActionGroup = activeActionGroupIndex;
         this.previousSession = message.getSession();
-        if (this.isFirstUpdate) {
-            this.isFirstUpdate = false;
-        }
     }
 
     @SafeVarargs
@@ -653,7 +668,6 @@ public class WSClient extends WebSocketClient {
     private void handleChampSelectDelete() {
         if (this.previousSession != null) {
             this.summonerNamesCallId = null;
-            this.playerList.clear();
             this.previousSession = null;
             // Send the request to the web component asking to close champion select.
             LOGGER.info("Champion select has ended.");
