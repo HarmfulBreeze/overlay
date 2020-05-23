@@ -204,7 +204,7 @@ public class WSClient extends WebSocketClient {
         this.sendMessagesToWebapp(ChampSelectCreateMessage.class, createMessage);
 
         List<String> championKeys = new ArrayList<>();
-        Champions.get().forEach(champ -> championKeys.add(champ.getKey()));
+        Champions.withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get().forEach(champ -> championKeys.add(champ.getKey()));
         PreloadSplashImagesMessage preloadMessage = new PreloadSplashImagesMessage(championKeys);
         this.sendMessagesToWebapp(PreloadSplashImagesMessage.class, preloadMessage);
     }
