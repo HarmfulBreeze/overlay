@@ -37,6 +37,8 @@ public class WSServer extends WebSocketServer {
     @Override
     public void onError(WebSocket conn, Exception ex) {
         if (ex instanceof BindException) {
+            LOGGER.error("The exception above means that overlay is already open or that something on your computer uses port 8887.");
+            LOGGER.error("Make sure to close the other instance and check for conflicting processes.");
             App.getApp().stop(true);
         } else {
             LOGGER.error("An error has occurred.", ex);
