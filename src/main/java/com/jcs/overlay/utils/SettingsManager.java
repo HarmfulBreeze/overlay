@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public final class SettingsManager {
-    private final Logger logger = LoggerFactory.getLogger(SettingsManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SettingsManager.class);
     private Path configPath = Paths.get(System.getProperty("user.dir") + "/config.conf");
     private Config config;
 
@@ -19,28 +19,28 @@ public final class SettingsManager {
 
         // recreate non-existent config
         if (!Files.exists(this.configPath)) {
-            this.logger.warn("Config file could not be found, recreating one.");
+            LOGGER.warn("Config file could not be found, recreating one.");
             try {
                 ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
                 Files.copy(classLoader.getResourceAsStream("application.conf"), this.configPath);
             } catch (Exception e) {
-                this.logger.error(e.getMessage(), e);
+                LOGGER.error(e.getMessage(), e);
             }
         }
 
-        // parse config file and check its validity
-        Config fileConfig = ConfigFactory.parseFile(this.configPath.toFile());
         try {
+            // parse config file and check its validity
+            Config fileConfig = ConfigFactory.parseFile(this.configPath.toFile());
             fileConfig.checkValid(ConfigFactory.defaultApplication(), "overlay");
             TimerStyle.checkTimerStyle(fileConfig);
             effectiveConfig = ConfigFactory.load(fileConfig);
-        } catch (ConfigException.ValidationFailed e) {
-            this.logger.error("Config file is invalid, using default configuration. If you wish to recreate the file," +
+        } catch (ConfigException.ValidationFailed | ConfigException.Parse e) {
+            LOGGER.error("Config file is invalid, using default configuration. If you wish to recreate the file," +
                     " simply delete it and it will be recreated on next startup.");
             effectiveConfig = ConfigFactory.load();
             this.configPath = null;
         } catch (ConfigException e) {
-            this.logger.error(e.getMessage(), e);
+            LOGGER.error(e.getMessage(), e);
             effectiveConfig = ConfigFactory.load();
             this.configPath = null;
         }
@@ -61,7 +61,7 @@ public final class SettingsManager {
 
     public void writeConfig() {
         if (this.configPath == null) {
-            this.logger.warn("Did not write configuration as the default config is loaded.");
+            LOGGER.warn("Did not write configuration as the default config is loaded.");
         } else {
             try {
                 Files.write(this.configPath, this.config.atPath("overlay")
@@ -70,7 +70,7 @@ public final class SettingsManager {
                         .getBytes()
                 );
             } catch (IOException e) {
-                this.logger.error(e.getMessage(), e);
+                LOGGER.error(e.getMessage(), e);
             }
         }
     }
