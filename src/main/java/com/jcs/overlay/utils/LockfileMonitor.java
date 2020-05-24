@@ -10,10 +10,12 @@ import java.nio.file.*;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
+// TODO: make the "league started" mechanism rely more on the process list
 public class LockfileMonitor implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(LockfileMonitor.class);
     private WatchService watchService;
     private boolean leagueStarted;
+    private boolean shouldStop = false;
 
     public synchronized void setLeagueStarted(boolean leagueStarted) {
         this.leagueStarted = leagueStarted;
@@ -23,7 +25,20 @@ public class LockfileMonitor implements Runnable {
     public void run() {
         LOGGER.info("Welcome! Awaiting connection to the game...");
 
-        Path leagueFolder = Utils.getLeagueDirectory();
+        Path leagueFolder;
+        do {
+            leagueFolder = Utils.getLeagueDirectory();
+            if (this.shouldStop) {
+                return;
+            } else if (leagueFolder == null) {
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    LOGGER.error(e.getMessage(), e);
+                }
+            }
+        } while (leagueFolder == null);
+
         try {
             this.watchService = FileSystems.getDefault().newWatchService();
             leagueFolder.register(this.watchService, ENTRY_MODIFY, ENTRY_DELETE);
@@ -33,7 +48,6 @@ public class LockfileMonitor implements Runnable {
         }
 
         Path lockfilePath = leagueFolder.resolve("lockfile");
-
         // On vérifie si le jeu est déjà démarré, si oui, se connecter directement
         if (Files.exists(lockfilePath)) {
             String lockfileContent = Utils.readLockfile(lockfilePath);
@@ -47,26 +61,29 @@ public class LockfileMonitor implements Runnable {
             this.leagueStarted = false;
         }
 
+        // Last check with shouldStop, after that the monitor closes when the WatchService gets closed
+        if (this.shouldStop) {
+            return;
+        }
+
         WatchKey key;
         String lockfileContent;
         try {
             while ((key = this.watchService.take()) != null) {
                 for (WatchEvent<?> event : key.pollEvents()) {
-                    // Lockfile modifié -> League mal fermé, on redémarre, ou League qui s'ouvre pour la 1ere fois
-                    if (event.kind() == ENTRY_MODIFY && ((Path) event.context()).endsWith("lockfile")) {
-                        if (this.leagueStarted) {
-                            continue;
+                    if (((Path) event.context()).endsWith("lockfile")) {
+                        if (event.kind() == ENTRY_MODIFY) { // lockfile modified -> first startup, or closed abruptly
+                            if (this.leagueStarted) {
+                                continue;
+                            }
+                            App.getApp().onLeagueStop();
+                            lockfileContent = Utils.readLockfile(lockfilePath);
+                            App.getApp().onLeagueStart(lockfileContent);
+                            this.setLeagueStarted(true);
+                        } else if (event.kind() == ENTRY_DELETE) { // lockfile deleted -> client closed
+                            this.setLeagueStarted(false);
+                            App.getApp().onLeagueStop();
                         }
-                        App.getApp().onLeagueStop();
-                        lockfileContent = Utils.readLockfile(lockfilePath);
-                        App.getApp().onLeagueStart(lockfileContent);
-                        this.setLeagueStarted(true);
-                    }
-
-                    // Si le lockfile est supprimé, on en déduit que le client est fermé
-                    else if (event.kind() == ENTRY_DELETE && ((Path) event.context()).endsWith("lockfile")) {
-                        this.setLeagueStarted(false);
-                        App.getApp().onLeagueStop();
                     }
                 }
                 key.reset();
@@ -80,10 +97,13 @@ public class LockfileMonitor implements Runnable {
     }
 
     public void stop() {
-        try {
-            this.watchService.close();
-        } catch (IOException e) {
-            LOGGER.error("Exception caught: ", e);
+        this.shouldStop = true;
+        if (this.watchService != null) {
+            try {
+                this.watchService.close();
+            } catch (IOException e) {
+                LOGGER.error("Exception caught: ", e);
+            }
         }
     }
 }

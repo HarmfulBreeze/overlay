@@ -14,6 +14,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,42 +60,39 @@ public class Utils {
         return lockfileContents;
     }
 
-    @NotNull
+    /**
+     * Gets the Windows League of Legends directory from the process list.
+     *
+     * @return A {@code Path} object holding an absolute path to the League directory,
+     * or {@code null} if it could not be found.
+     **/
+    @Nullable
     public static Path getLeagueDirectory() {
-        do {
-            Kernel32 k32 = Kernel32.INSTANCE;
-            WinNT.HANDLE snapshot = k32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, new WinDef.DWORD(0));
-            Tlhelp32.PROCESSENTRY32.ByReference processEntry = new Tlhelp32.PROCESSENTRY32.ByReference();
-            byte[] buf = new byte[1024];
-            while (k32.Process32Next(snapshot, processEntry)) {
-                if (Native.toString(processEntry.szExeFile).equals("LeagueClient.exe")) {
-                    WinNT.HANDLE handle = k32.OpenProcess(
-                            WinNT.PROCESS_QUERY_INFORMATION + WinNT.PROCESS_VM_READ,
-                            false,
-                            processEntry.th32ProcessID.intValue());
-                    int result = psapi.INSTANCE.GetModuleFileNameExA(
-                            handle,
-                            Pointer.NULL,
-                            buf,
-                            1024);
-                    k32.CloseHandle(handle);
-                    if (result > 0) { // Path was retrieved successfully
-                        k32.CloseHandle(snapshot);
-                        String pathToClient = Native.toString(buf).substring(0, result);
-                        return Paths.get(pathToClient).getParent();
-                    }
+        Kernel32 k32 = Kernel32.INSTANCE;
+        WinNT.HANDLE snapshot = k32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, new WinDef.DWORD(0));
+        Tlhelp32.PROCESSENTRY32.ByReference processEntry = new Tlhelp32.PROCESSENTRY32.ByReference();
+        byte[] buf = new byte[1024];
+        while (k32.Process32Next(snapshot, processEntry)) {
+            if (Native.toString(processEntry.szExeFile).equals("LeagueClient.exe")) {
+                WinNT.HANDLE handle = k32.OpenProcess(
+                        WinNT.PROCESS_QUERY_INFORMATION + WinNT.PROCESS_VM_READ,
+                        false,
+                        processEntry.th32ProcessID.intValue());
+                int result = psapi.INSTANCE.GetModuleFileNameExA(
+                        handle,
+                        Pointer.NULL,
+                        buf,
+                        1024);
+                k32.CloseHandle(handle);
+                if (result > 0) { // Path was retrieved successfully
+                    k32.CloseHandle(snapshot);
+                    String pathToClient = Native.toString(buf).substring(0, result);
+                    return Paths.get(pathToClient).getParent();
                 }
             }
-            k32.CloseHandle(snapshot);
-            synchronized (LOCK) {
-                try {
-                    LOCK.wait(2000);
-                } catch (InterruptedException e) {
-                    LOGGER.error(e.getMessage(), e);
-                    Thread.currentThread().interrupt();
-                }
-            }
-        } while (true);
+        }
+        k32.CloseHandle(snapshot);
+        return null;
     }
 
     /**
