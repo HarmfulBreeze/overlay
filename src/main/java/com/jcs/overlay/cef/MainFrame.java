@@ -10,6 +10,8 @@ import org.cef.CefSettings;
 import org.cef.browser.CefBrowser;
 import org.cef.handler.CefAppHandlerAdapter;
 import org.cef.handler.CefFocusHandlerAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -20,7 +22,8 @@ import java.util.List;
 
 public class MainFrame extends JFrame {
     private static final long serialVersionUID = -5570653778104813836L;
-    private final CefApp cefApp_;
+    private static final Logger LOGGER = LoggerFactory.getLogger(MainFrame.class);
+    private CefApp cefApp_;
     private final CefClient client_;
     private final CefBrowser browser_;
     private final Component browserUI_;
@@ -55,7 +58,19 @@ public class MainFrame extends JFrame {
         });
         CefSettings settings = new CefSettings();
         settings.windowless_rendering_enabled = useOSR;
-        this.cefApp_ = CefApp.getInstance(settings);
+        try {
+            this.cefApp_ = CefApp.getInstance(settings);
+        } catch (UnsatisfiedLinkError ule) {
+            if (ule.getMessage().contains("Can't load IA 32-bit .dll")) {
+                LOGGER.error("Cannot run the 64-bit version of overlay with a 32-bit Java installation.");
+                LOGGER.error("Download the 32-bit version of overlay or setup 64-bit Java.");
+                App.getApp().stop(true);
+            } else if (ule.getMessage().contains("Can't load AMD 64-bit .dll")) {
+                LOGGER.error("Cannot run the 32-bit version of overlay with a 64-bit Java installation.");
+                LOGGER.error("Download the 64-bit version of overlay or setup 32-bit Java.");
+                App.getApp().stop(true);
+            }
+        }
 
         // (2) JCEF can handle one to many browser instances simultaneous. These
         //     browser instances are logically grouped together by an instance of

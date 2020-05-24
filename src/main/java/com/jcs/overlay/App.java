@@ -26,6 +26,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static org.cef.CefApp.CefAppState.NONE;
+import static org.cef.CefApp.CefAppState.TERMINATED;
+
 public class App {
     private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
     private static App APP;
@@ -99,10 +102,15 @@ public class App {
 
         LOGGER.info("Shutting down...");
 
-        if (CefApp.getState() != CefApp.CefAppState.TERMINATED) {
+        CefApp.CefAppState cefAppState = CefApp.getState();
+        // Dispose of CefApp only if it's currently running
+        if (cefAppState != NONE && cefAppState != TERMINATED) {
             CefApp.getInstance().dispose();
         }
-        this.cefManager.getMainFrame().dispose();
+        // Dispose of the mainframe only if it has existed
+        if (cefAppState != NONE) {
+            this.cefManager.getMainFrame().dispose();
+        }
 
         this.settingsWatcher.stop();
         LOGGER.debug("Stopping settings watcher...");
