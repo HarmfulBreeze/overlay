@@ -1,3 +1,6 @@
 @echo off
+set PREV_DIR=%CD%
+cd /d "%~dp0"
 cd ..
-gradlew.bat shadowJarW64
+call gradlew.bat shadowJarW64
+cd %PREV_DIR%
