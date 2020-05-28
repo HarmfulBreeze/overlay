@@ -1,6 +1,5 @@
 package com.jcs.overlay.utils;
 
-import com.merakianalytics.orianna.types.common.Region;
 import com.merakianalytics.orianna.types.core.staticdata.*;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
@@ -165,7 +164,7 @@ public class Utils {
         String imgFolderPath = System.getProperty("user.dir") + "/web/img/";
 
         // Download all summoner spells images and write them to pngs
-        SummonerSpells spells = SummonerSpells.withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get();
+        SummonerSpells spells = SummonerSpells.get();
         for (SummonerSpell spell : spells) {
             Path path = Paths.get(imgFolderPath + "icon/spell/" + spell.getId() + ".png");
             try {
@@ -177,7 +176,7 @@ public class Utils {
         }
 
         // Download all champion icons and write them to pngs
-        Champions allChampions = Champions.withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get();
+        Champions allChampions = Champions.get();
         for (Champion champion : allChampions) {
             Path path = Paths.get(imgFolderPath + "icon/champion/icon_" + champion.getKey() + ".png");
             try {

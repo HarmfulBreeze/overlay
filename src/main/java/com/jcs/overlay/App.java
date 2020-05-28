@@ -9,10 +9,8 @@ import com.jcs.overlay.websocket.WSAutoReconnect;
 import com.jcs.overlay.websocket.WSClient;
 import com.jcs.overlay.websocket.WSServer;
 import com.merakianalytics.orianna.Orianna;
-import com.merakianalytics.orianna.types.common.Region;
 import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpells;
-import com.merakianalytics.orianna.types.core.staticdata.Versions;
 import org.cef.CefApp;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.server.WebSocketServer;
@@ -42,7 +40,7 @@ public class App {
     private WSAutoReconnect autoReconnect;
     private Thread autoReconnectThread;
     private CefManager cefManager;
-    private Thread settingsWatcherThread;
+    private final Thread settingsWatcherThread;
 
     private App() {
         this.lockfileMonitor = new LockfileMonitor();
@@ -57,9 +55,6 @@ public class App {
         // Pre-caching
         Champions.get().load();
         SummonerSpells.get().load();
-        // Temporary fix for versions:
-        Champions.withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get().load();
-        SummonerSpells.withVersion(Versions.withRegion(Region.EUROPE_WEST).get().get(0)).get().load();
         if (Utils.checkForNewPatch()) {
             LOGGER.info("New patch detected! Updating webapp images.");
             Utils.updateWebappImages();

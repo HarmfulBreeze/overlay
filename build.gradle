@@ -51,7 +51,7 @@ dependencies {
     implementation name: "config"
 
     // Orianna
-    implementation group: 'com.merakianalytics.orianna', name: 'orianna', version: '4.0.0-rc6'
+    implementation group: 'com.merakianalytics.orianna', name: 'orianna', version: '4.0.0-rc7'
 
     // Moshi
     implementation group: 'com.squareup.moshi', name: 'moshi', version: '1.8.0'
