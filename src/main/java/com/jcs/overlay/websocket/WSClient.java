@@ -37,6 +37,7 @@ import java.net.URI;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,7 +54,7 @@ public class WSClient extends WebSocketClient {
             .add(Action.ActionType.class, EnumJsonAdapter.create(Action.ActionType.class).withUnknownFallback(UNKNOWN))
             .build();
     private final List<Player> playerList = new ArrayList<>();
-    private final List<SessionMessage> updateMessagesQueue = new ArrayList<>();
+    private final Queue<SessionMessage> updateMessagesQueue = new ConcurrentLinkedQueue<>();
     private Session previousSession = null;
     private boolean receivedSummonerNamesUpdate;
     private boolean myTeamIsBlueTeam;
@@ -63,14 +64,17 @@ public class WSClient extends WebSocketClient {
     private Bans bans;
 
     public WSClient(URI uri, Map<String, String> httpHeaders) {
+        // Setup WebSocketClient
         super(uri, httpHeaders);
+
+        // Setup SSL context
         try {
             SSLContext sslContext = Utils.getSslContext();
             SSLSocketFactory factory = sslContext.getSocketFactory();
             this.setSocketFactory(factory);
         } catch (NoSuchAlgorithmException | KeyManagementException e) {
             LOGGER.error("Could not get a proper SSL context!", e);
-            System.exit(1);
+            App.getApp().stop(true);
         }
     }
 
@@ -241,7 +245,7 @@ public class WSClient extends WebSocketClient {
             }
         });
 
-        // Finally we communicate the summoner names to the webapp
+        // Finally we communicate the summoner names to the webapp...
         Map<Integer, String> playerMap = new HashMap<>();
         for (Player player : this.playerList) {
             String summonerName = player.getSummonerName();
@@ -249,10 +253,12 @@ public class WSClient extends WebSocketClient {
         }
         PlayerNamesMessage playerNamesMessage = new PlayerNamesMessage(playerMap);
         this.sendMessagesToWebapp(PlayerNamesMessage.class, playerNamesMessage);
-        for (SessionMessage msg : this.updateMessagesQueue) {
-            this.handleChampSelectUpdate(msg);
+
+        // And handle the messages waiting in the queue
+        SessionMessage msg2;
+        while ((msg2 = this.updateMessagesQueue.poll()) != null) {
+            this.handleChampSelectUpdate(msg2);
         }
-        this.updateMessagesQueue.clear();
         LOGGER.debug("Update messages queue is cleared.");
         this.receivedSummonerNamesUpdate = true;
     }
@@ -676,9 +682,9 @@ public class WSClient extends WebSocketClient {
     }
 
     /**
-     * Sends the WebSocket query message to retrieve all teams from the provided SessionMessage.
+     * Sends the WebSocket query message to retrieve all players names from the provided SessionMessage.
      *
-     * @param session SessionMessage object containing the teams to retrieve the names of.
+     * @param session SessionMessage object containing the players to retrieve the names of.
      */
     private void sendUpdateNamesRequest(Session session) {
         this.summonerNamesCallId = RandomStringUtils.randomAlphanumeric(10);
