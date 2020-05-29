@@ -320,7 +320,9 @@ public class WSClient extends WebSocketClient {
             } else {
                 LOGGER.debug("Not a spectator!");
             }
-            this.myTeamIsBlueTeam = this.isMyTeamBlueTeam(session);
+            if (session.getMyTeam() != null) {
+                this.myTeamIsBlueTeam = this.isMyTeamBlueTeam(session.getMyTeam());
+            }
             oldActions = null;
         } else { // any other update
             oldActions = this.previousSession.getActions();
@@ -731,8 +733,14 @@ public class WSClient extends WebSocketClient {
         return opt.map(player -> player.getPlayerSelection().getTeam()).orElse(-1);
     }
 
-    private boolean isMyTeamBlueTeam(Session session) {
-        return session.getMyTeam().get(0).getTeam() == 1;
+    /**
+     * Checks if <i>myTeam</i> is blue team (Team 100/Team 1/Order).
+     *
+     * @param myTeam A <i>non-null</i> list of {@link PlayerSelection} objects from {@link Session#getMyTeam()}.
+     * @return {@code true} if myTeam is blue team, else false.
+     */
+    private boolean isMyTeamBlueTeam(@NotNull List<PlayerSelection> myTeam) {
+        return myTeam.get(0).getTeam() == 1;
     }
 
     private long getAdjustedCellId(long actorCellId) {
