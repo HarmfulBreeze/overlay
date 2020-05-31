@@ -62,7 +62,7 @@ public class LockfileMonitor implements Runnable {
         }
 
         Path lockfilePath = leagueFolder.resolve("lockfile");
-        // On vérifie si le jeu est déjà démarré, si oui, se connecter directement
+        // We check whether the client is already open, if so, connect directly
         if (Files.exists(lockfilePath)) {
             String lockfileContent = Utils.readLockfile(lockfilePath);
             if (lockfileContent != null && !lockfileContent.isEmpty()) {

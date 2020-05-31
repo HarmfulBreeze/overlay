@@ -119,22 +119,22 @@ public class Utils {
     /**
      * @return an {@link SSLContext} permissive enough to allow the League Client self-signed certificate.
      * @throws NoSuchAlgorithmException if no {@link Provider} was found for handling TLS.
-     * @throws KeyManagementException   if {@code SSLContext} initialization failed.
+     * @throws KeyManagementException   if {@link SSLContext} initialization failed.
      */
     @NotNull
     public static SSLContext getSslContext() throws NoSuchAlgorithmException, KeyManagementException {
         TrustManager[] trustAllCerts = new TrustManager[]{
                 new X509TrustManager() {
                     public X509Certificate[] getAcceptedIssuers() {
-                        return new X509Certificate[]{}; // return an empty accepted issuers array
+                        return new X509Certificate[]{}; // Return an empty accepted issuers array
                     }
 
                     public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                        // do nothing, trust client ssl auth
+                        // Do nothing, trust client SSL auth
                     }
 
                     public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                        // do nothing, trust server ssl auth
+                        // Do nothing, trust server SSL auth
                     }
                 }
         };
@@ -163,7 +163,7 @@ public class Utils {
     public static void updateWebappImages() {
         String imgFolderPath = System.getProperty("user.dir") + "/web/img/";
 
-        // Download all summoner spells images and write them to pngs
+        // Download all summoner spells images and write them to PNG files
         SummonerSpells spells = SummonerSpells.get();
         for (SummonerSpell spell : spells) {
             Path path = Paths.get(imgFolderPath + "icon/spell/" + spell.getId() + ".png");
@@ -175,7 +175,7 @@ public class Utils {
             }
         }
 
-        // Download all champion icons and write them to pngs
+        // Download all champion icons and write them to PNG files
         Champions allChampions = Champions.get();
         for (Champion champion : allChampions) {
             Path path = Paths.get(imgFolderPath + "icon/champion/icon_" + champion.getKey() + ".png");
@@ -187,7 +187,7 @@ public class Utils {
             }
         }
 
-        // Download the generic champion icon directly from the CDN and write it to a png
+        // Download the generic champion icon directly from the CDN and write it to a PNG file
         OkHttpClient client = new OkHttpClient();
         String latestVersion = Versions.get().get(0);
         String url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/generic/square";
@@ -204,7 +204,7 @@ public class Utils {
             LOGGER.error(e.getMessage(), e);
         }
 
-        // Download every champion's centered splash art and write them to pngs
+        // Download every champion's centered splash art and write them to PNG files
         for (Champion champion : allChampions) {
             String championKey = champion.getKey();
             url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/" + championKey + "/splash-art/centered";

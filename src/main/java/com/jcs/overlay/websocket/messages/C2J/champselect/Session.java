@@ -20,7 +20,7 @@ public class Session {
     boolean isSpectating;
     long localPlayerCellId;
     int lockedEventIndex;
-    List<PlayerSelection> myTeam; // correspond à la blue team
+    List<PlayerSelection> myTeam;
     long rerollsRemaining; // uint32
     List<PlayerSelection> theirTeam;
     Timer timer;

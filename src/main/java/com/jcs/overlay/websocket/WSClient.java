@@ -308,16 +308,16 @@ public class WSClient extends WebSocketClient {
             // Active action group changed
             if (isFirstUpdate || activeActionGroupIndex != this.previousActiveActionGroup) {
                 if (!isFirstUpdate) { // first update -> no oldActions
-                    // at least one newly completed action needs to be handled
+                    // At least one newly completed action needs to be handled
                     List<Action> newlyCompletedActions = this.getNewlyCompletedActions(oldActions, newActions);
                     for (Action action : newlyCompletedActions) {
                         this.handleCompletedAction(action);
                     }
                 }
-                // handle new active group actions
+                // Handle new active group actions
                 for (Action action : newActions.get(activeActionGroupIndex)) {
                     if (action.getType() == TEN_BANS_REVEAL) {
-                        // Don't handle ten bans reveal, we don't care about it
+                        // Basic handling of ten bans reveal, we don't care about it
                         LOGGER.debug("Ten bans reveal started.");
                         continue;
                     }
@@ -377,7 +377,7 @@ public class WSClient extends WebSocketClient {
                 for (int i = 0; i < activeActionGroup.size(); i++) {
                     Action updatedAction = activeActionGroup.get(i);
                     Action oldAction = oldActiveActionGroup.get(i);
-                    // handle ten bans reveal
+                    // No handling of ten bans reveal
                     if (updatedAction.getType() == TEN_BANS_REVEAL) {
                         continue;
                     }
@@ -404,7 +404,7 @@ public class WSClient extends WebSocketClient {
                                 LOGGER.error("Unknown player with cellId " + updatedAction.getActorCellId());
                             }
                         }
-                        if (updatedAction.isCompleted() != oldAction.isCompleted()) { // action just completed
+                        if (updatedAction.isCompleted() != oldAction.isCompleted()) { // Action just completed
                             this.handleCompletedAction(updatedAction);
                         }
                     }
@@ -415,7 +415,7 @@ public class WSClient extends WebSocketClient {
         Timer timer = session.getTimer();
         Timer.Phase timerPhase = timer.getPhase();
         // TODO: handle unknown phase better
-        if (timerPhase != Timer.Phase.UNKNOWN) { // If phase is known, we can consider that we have info on the timer
+        if (timerPhase != Timer.Phase.UNKNOWN) { // If phase is known, we can assume that we have info on the timer
             if (!isFirstUpdate && timerPhase != this.previousSession.getTimer().getPhase()) {
                 LOGGER.debug("New phase: " + timerPhase);
             }
@@ -431,7 +431,7 @@ public class WSClient extends WebSocketClient {
                 PlayerSelection ps = player.getPlayerSelection();
                 Long spell1Id = ps.getSpell1Id();
                 Long spell2Id = ps.getSpell2Id();
-                if (spell1Id != 0 && spell2Id != 0) { // if we have info on the enemy team sums
+                if (spell1Id != 0 && spell2Id != 0) { // If we have info on the enemy team sums
                     String summonerName = player.getSummonerName();
                     LOGGER.debug(summonerName + " has summoner spells "
                             + SummonerSpell.withId(spell1Id.intValue()).get().getName()
@@ -514,14 +514,14 @@ public class WSClient extends WebSocketClient {
         String json = WSClient.getDataFromWampMessage(message);
         // If there is no JSON data or we get a CALLERROR
         if (json == null || message.startsWith("[4")) {
-            // chat plugin isn't loaded, most likely
+            // Chat plugin isn't loaded, most likely
             try {
                 LOGGER.debug("Waiting for chat plugin to load...");
                 Thread.sleep(5000);
             } catch (InterruptedException e) {
                 LOGGER.error(e.getMessage(), e);
             }
-            this.requestChatSessionState(); // we request the chat state again
+            this.requestChatSessionState(); // We request the chat state again
             return;
         }
 
@@ -530,7 +530,7 @@ public class WSClient extends WebSocketClient {
             this.send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
             LOGGER.debug("Subscribed to champ select events.");
         } else {
-            // chat plugin probably still not loaded
+            // Chat plugin is probably still not loaded
             try {
                 LOGGER.debug("Waiting for chat plugin to load... (part 2)");
                 Thread.sleep(5000);
@@ -704,7 +704,7 @@ public class WSClient extends WebSocketClient {
                 builder.append(player.getSummonerId()).append(", ");
             }
         }
-        builder.delete(builder.length() - 2, builder.length()); // On enlève le dernier ", "
+        builder.delete(builder.length() - 2, builder.length()); // Removes the trailing ", "
         builder.append("]]");
         String query = builder.toString();
 

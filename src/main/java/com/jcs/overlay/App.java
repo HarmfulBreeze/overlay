@@ -161,7 +161,7 @@ public class App {
         String port = parts[2];
         String password = parts[3];
 
-        // On ajoute le header d'authentification
+        // Auth header gets added
         Map<String, String> httpHeaders = new HashMap<>();
         httpHeaders.put("Authorization", Utils.fromPasswordToAuthToken(password));
 
@@ -173,7 +173,7 @@ public class App {
             Thread.currentThread().interrupt();
         }
 
-        // On démarre le thread de reconnexion auto
+        // Start autoreconnect thread
         this.autoReconnect = new WSAutoReconnect();
         this.autoReconnectThread = new Thread(this.autoReconnect);
         this.autoReconnectThread.setName("WebSocket Auto Reconnect");
