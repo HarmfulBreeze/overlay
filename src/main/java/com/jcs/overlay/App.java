@@ -17,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,23 +30,14 @@ public class App {
     private static App APP;
     private static boolean guiEnabled;
     private static boolean isClosed = false;
-    private final SettingsWatcher settingsWatcher;
-    private final LockfileMonitor lockfileMonitor;
     private final Thread lockfileMonitorThread;
-    private final WSServer wsServer;
+    private final Thread settingsWatcherThread;
     private WebSocketClient wsClient;
     private WSAutoReconnect autoReconnect;
     private Thread autoReconnectThread;
     private CefManager cefManager;
-    private final Thread settingsWatcherThread;
 
     private App() {
-        this.lockfileMonitor = new LockfileMonitor();
-        this.lockfileMonitorThread = new Thread(this.lockfileMonitor);
-
-        InetSocketAddress address = new InetSocketAddress("localhost", 8887);
-        this.wsServer = new WSServer(address);
-
         // Orianna
         Orianna.loadConfiguration("config.json");
 
@@ -60,10 +50,12 @@ public class App {
             Utils.updateLatestPatchFile();
         }
 
+        // Create lockfile monitor thread
+        this.lockfileMonitorThread = new Thread(LockfileMonitor.getInstance());
         this.lockfileMonitorThread.setName("Lockfile Monitor");
 
-        this.settingsWatcher = new SettingsWatcher();
-        this.settingsWatcherThread = new Thread(this.settingsWatcher);
+        // Create setttings watcher thread
+        this.settingsWatcherThread = new Thread(SettingsWatcher.getInstance());
         this.settingsWatcherThread.setName("Settings Watcher");
     }
 
@@ -78,13 +70,9 @@ public class App {
         return APP;
     }
 
-    public WSServer getWsServer() {
-        return this.wsServer;
-    }
-
     synchronized public void start() {
         this.lockfileMonitorThread.start();
-        this.wsServer.start();
+        WSServer.getInstance().start();
         this.settingsWatcherThread.start();
         this.cefManager = guiEnabled ? new CefManager() : null;
     }
@@ -106,7 +94,7 @@ public class App {
             this.cefManager.getMainFrame().dispose();
         }
 
-        this.settingsWatcher.stop();
+        SettingsWatcher.getInstance().stop();
         LOGGER.debug("Stopping settings watcher...");
         try {
             this.settingsWatcherThread.join();
@@ -115,7 +103,7 @@ public class App {
             LOGGER.error("Error stopping settings watcher", e);
         }
 
-        this.lockfileMonitor.stop();
+        LockfileMonitor.getInstance().stop();
         LOGGER.debug("Waiting for lockfile monitor to close...");
         try {
             this.lockfileMonitorThread.join();
@@ -136,7 +124,7 @@ public class App {
 
         LOGGER.debug("Stopping wsServer...");
         try {
-            this.wsServer.stop();
+            WSServer.getInstance().stop();
             LOGGER.debug("wsServer stopped.");
         } catch (IOException | InterruptedException e) {
             LOGGER.error("Error stopping wsServer", e);
@@ -160,10 +148,6 @@ public class App {
         if (force) {
             System.exit(0);
         }
-    }
-
-    public LockfileMonitor getLockfileMonitor() {
-        return this.lockfileMonitor;
     }
 
     public WebSocketClient getWsClient() {
@@ -190,34 +174,25 @@ public class App {
         }
 
         // On démarre le thread de reconnexion auto
-        this.startAutoReconnect();
-    }
-
-    public void onLeagueStop() {
-        if (this.autoReconnect != null) {
-            this.stopAutoReconnect();
-            LOGGER.debug("Client closed.");
-        }
-    }
-
-    private void startAutoReconnect() {
         this.autoReconnect = new WSAutoReconnect();
         this.autoReconnectThread = new Thread(this.autoReconnect);
         this.autoReconnectThread.setName("WebSocket Auto Reconnect");
         this.autoReconnectThread.start();
     }
 
-    private void stopAutoReconnect() {
-        this.autoReconnect.stop();
-        try {
-            this.autoReconnectThread.join();
-        } catch (InterruptedException e) {
-            LOGGER.error("Exception caught: ", e);
+    public void onLeagueStop() {
+        // Stop WSAutoReconnect
+        if (this.autoReconnect != null) {
+            this.autoReconnect.stop();
+            try {
+                this.autoReconnectThread.join();
+            } catch (InterruptedException e) {
+                LOGGER.error("Exception caught: ", e);
+            }
+            this.autoReconnect = null;
+            this.autoReconnectThread = null;
+            LOGGER.debug("Client closed.");
         }
-
-        this.autoReconnect = null;
-        this.autoReconnectThread = null;
     }
-
 }
 

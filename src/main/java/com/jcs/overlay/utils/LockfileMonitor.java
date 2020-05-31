@@ -17,6 +17,20 @@ public class LockfileMonitor implements Runnable {
     private boolean leagueStarted;
     private boolean shouldStop = false;
 
+    // Private constructor
+    private LockfileMonitor() {
+    }
+
+    // Instance getter
+    public static LockfileMonitor getInstance() {
+        return LockfileMonitorHolder.INSTANCE;
+    }
+
+    // Singleton holder
+    private static class LockfileMonitorHolder {
+        private static final LockfileMonitor INSTANCE = new LockfileMonitor();
+    }
+
     public synchronized void setLeagueStarted(boolean leagueStarted) {
         this.leagueStarted = leagueStarted;
     }

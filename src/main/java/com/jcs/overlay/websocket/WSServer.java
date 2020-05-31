@@ -18,8 +18,19 @@ public class WSServer extends WebSocketServer {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSServer.class);
     private static final Moshi MOSHI = new Moshi.Builder().build();
 
-    public WSServer(InetSocketAddress address) {
-        super(address);
+    // Private constructor
+    private WSServer() {
+        super(new InetSocketAddress("localhost", 8887));
+    }
+
+    // Instance getter
+    public static WSServer getInstance() {
+        return WSServerHolder.INSTANCE;
+    }
+
+    // Singleton holder
+    private static class WSServerHolder {
+        private static final WSServer INSTANCE = new WSServer();
     }
 
     @Override

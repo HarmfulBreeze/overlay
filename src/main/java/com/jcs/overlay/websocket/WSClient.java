@@ -46,7 +46,7 @@ import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.We
 
 public class WSClient extends WebSocketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
-    private final WSServer wsServer = App.getApp().getWsServer();
+    private final WSServer wsServer = WSServer.getInstance();
     private final Moshi moshi = new Moshi.Builder()
             .add(new Uint64Adapter())
             .add(Timer.Phase.class, EnumJsonAdapter.create(Timer.Phase.class).withUnknownFallback(Timer.Phase.UNKNOWN))

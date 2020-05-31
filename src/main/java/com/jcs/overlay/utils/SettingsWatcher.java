@@ -15,6 +15,20 @@ public class SettingsWatcher implements Runnable {
     private boolean shouldStop = false;
     private WatchService watchService;
 
+    // Private constructor
+    private SettingsWatcher() {
+    }
+
+    // Instance getter
+    public static SettingsWatcher getInstance() {
+        return SettingsWatcherHolder.INSTANCE;
+    }
+
+    // Singleton holder
+    private static class SettingsWatcherHolder {
+        private static final SettingsWatcher INSTANCE = new SettingsWatcher();
+    }
+
     @Override
     public void run() {
         try {
