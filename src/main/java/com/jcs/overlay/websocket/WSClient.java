@@ -22,7 +22,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.framing.CloseFrame;
 import org.java_websocket.handshake.ServerHandshake;
-import org.java_websocket.server.WebSocketServer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -47,7 +46,7 @@ import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.We
 
 public class WSClient extends WebSocketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
-    private final WebSocketServer wsServer = App.getApp().getWsServer();
+    private final WSServer wsServer = App.getApp().getWsServer();
     private final Moshi moshi = new Moshi.Builder()
             .add(new Uint64Adapter())
             .add(Timer.Phase.class, EnumJsonAdapter.create(Timer.Phase.class).withUnknownFallback(Timer.Phase.UNKNOWN))
@@ -79,6 +78,8 @@ public class WSClient extends WebSocketClient {
     }
 
     /**
+     * Extracts the data from the WAMP message through RegEx matching.
+     *
      * @param message The WAMP message received.
      * @return If there is a json object, it gets returned. Else, the method returns null.
      */
@@ -87,17 +88,6 @@ public class WSClient extends WebSocketClient {
         Pattern pattern = Pattern.compile("(?:\",(.*)])");
         Matcher matcher = pattern.matcher(message);
         if (!matcher.find()) { // If the message has no json object, return null.
-            return null;
-        }
-
-        return matcher.group(1);
-    }
-
-    @Nullable
-    private static String getSessionStateFromJson(@NotNull String json) {
-        Pattern pattern = Pattern.compile("(?:\"sessionState\":\"(.*)\"})");
-        Matcher matcher = pattern.matcher(json);
-        if (!matcher.find()) {
             return null;
         }
 
@@ -116,13 +106,21 @@ public class WSClient extends WebSocketClient {
         }
     }
 
-    @Override
-    public void onError(Exception ex) {
-        if (ex instanceof ConnectException) {
-            LOGGER.error("Connection error: " + ex.getMessage());
-        } else {
-            LOGGER.error("Exception caught: ", ex);
+    /**
+     * Extracts the chat session state {@link String} from the JSON data through RegEx matching.
+     *
+     * @param json The JSON data coming from the WAMP response message to the chat session request.
+     * @return The chat session state {@link String}, or {@code null} if the matching failed.
+     */
+    @Nullable
+    private static String getChatSessionStateFromJson(@NotNull String json) {
+        Pattern pattern = Pattern.compile("(?:\"sessionState\":\"(.*)\"})");
+        Matcher matcher = pattern.matcher(json);
+        if (!matcher.find()) {
+            return null;
         }
+
+        return matcher.group(1);
     }
 
     @Override
@@ -132,7 +130,7 @@ public class WSClient extends WebSocketClient {
     }
 
     @Override
-    public void onMessage(@NotNull String message) {
+    public void onMessage(String message) {
         if (message.isEmpty()) {
             return;
         }
@@ -148,119 +146,13 @@ public class WSClient extends WebSocketClient {
         }
     }
 
-    private void requestChatSessionState() {
-        this.chatCallId = RandomStringUtils.randomAlphanumeric(10);
-        String query = "[2, \"" + this.chatCallId + "\", \"GetLolChatV1Session\"]";
-        this.send(query);
-    }
-
-    private void handleChatSessionMessage(String message) {
-        String json = WSClient.getDataFromWampMessage(message);
-        // If there is no JSON data or we get a CALLERROR
-        if (json == null || message.startsWith("[4")) {
-            // chat plugin isn't loaded, most likely
-            try {
-                LOGGER.debug("Waiting for chat plugin to load...");
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                LOGGER.error(e.getMessage(), e);
-            }
-            this.requestChatSessionState(); // we request the chat state again
-            return;
-        }
-
-        String sessionState = WSClient.getSessionStateFromJson(json);
-        if (sessionState != null && (sessionState.equals("loaded") || sessionState.equals("connected"))) {
-            this.send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
-            LOGGER.debug("Subscribed to champ select events.");
+    @Override
+    public void onError(Exception ex) {
+        if (ex instanceof ConnectException) {
+            LOGGER.error("Connection error: " + ex.getMessage());
         } else {
-            // chat plugin probably still not loaded
-            try {
-                LOGGER.debug("Waiting for chat plugin to load... (part 2)");
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                LOGGER.error(e.getMessage(), e);
-            }
-            this.requestChatSessionState();
+            LOGGER.error("Exception caught: ", ex);
         }
-    }
-
-    private void handleChampSelectCreate() {
-        LOGGER.info("Champion select has started!");
-        this.previousSession = null;
-        this.previousActiveActionGroup = -1;
-        this.playerList.clear();
-        this.updateMessagesQueue.clear();
-        this.receivedSummonerNamesUpdate = false;
-        this.bans = new Bans();
-
-        Config config = SettingsManager.getManager().getConfig();
-        String team100Name = config.getString("teams.blue.name");
-        String team200Name = config.getString("teams.red.name");
-        List<Integer> team100Color = config.getIntList("teams.blue.rgbColor");
-        List<Integer> team200Color = config.getIntList("teams.red.rgbColor");
-        TeamNames teamNames = new TeamNames(team100Name, team200Name);
-        TeamColors teamColors = new TeamColors(team100Color, team200Color);
-        WebappConfig webappConfig = new WebappConfig();
-        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors, webappConfig);
-        this.sendMessagesToWebapp(ChampSelectCreateMessage.class, createMessage);
-
-        List<String> championKeys = new ArrayList<>();
-        Champions.get().forEach(champ -> championKeys.add(champ.getKey()));
-        PreloadSplashImagesMessage preloadMessage = new PreloadSplashImagesMessage(championKeys);
-        this.sendMessagesToWebapp(PreloadSplashImagesMessage.class, preloadMessage);
-    }
-
-    private void handleSummonerNamesUpdate(String message) {
-        String json = WSClient.getDataFromWampMessage(message);
-        if (json == null) {
-            return;
-        }
-        LOGGER.debug("Received summoner names message!");
-
-        // Deserialize JSON
-        Type type = Types.newParameterizedType(List.class, SummonerIdAndName.class);
-        JsonAdapter<List<SummonerIdAndName>> jsonAdapter = this.moshi.adapter(type);
-        List<SummonerIdAndName> summonerIdsAndNames;
-        try {
-            summonerIdsAndNames = jsonAdapter.fromJson(json);
-            if (summonerIdsAndNames == null || summonerIdsAndNames.isEmpty()) {
-                throw new JsonDataException("summonerIdsAndNames is null or empty!");
-            }
-        } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
-            return;
-        }
-
-        // We update our playerList with the summoner names
-        Optional<Player> playerFound;
-        for (SummonerIdAndName idAndName : summonerIdsAndNames) {
-            Long summonerId = idAndName.getSummonerId();
-            playerFound = this.playerList.stream().filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId)).findFirst();
-            playerFound.ifPresent(player -> player.setSummonerName(idAndName.getDisplayName()));
-        }
-        this.playerList.forEach(player -> {
-            if (player.getSummonerName() == null || player.getSummonerName().isEmpty()) {
-                player.setSummonerName("Player " + (player.getAdjustedCellId() + 1));
-            }
-        });
-
-        // Finally we communicate the summoner names to the webapp...
-        Map<Integer, String> playerMap = new HashMap<>();
-        for (Player player : this.playerList) {
-            String summonerName = player.getSummonerName();
-            playerMap.put((int) player.getAdjustedCellId(), summonerName);
-        }
-        PlayerNamesMessage playerNamesMessage = new PlayerNamesMessage(playerMap);
-        this.sendMessagesToWebapp(PlayerNamesMessage.class, playerNamesMessage);
-
-        // And handle the messages waiting in the queue
-        SessionMessage msg2;
-        while ((msg2 = this.updateMessagesQueue.poll()) != null) {
-            this.handleChampSelectUpdate(msg2);
-        }
-        LOGGER.debug("Update messages queue is cleared.");
-        this.receivedSummonerNamesUpdate = true;
     }
 
     private void handleChampSelectMessage(String message) {
@@ -306,6 +198,84 @@ public class WSClient extends WebSocketClient {
         } else {
             this.handleChampSelectUpdate(jsonMessage);
         }
+    }
+
+    private void handleChampSelectCreate() {
+        LOGGER.info("Champion select has started!");
+        this.previousSession = null;
+        this.previousActiveActionGroup = -1;
+        this.playerList.clear();
+        this.updateMessagesQueue.clear();
+        this.receivedSummonerNamesUpdate = false;
+        this.bans = new Bans();
+
+        Config config = SettingsManager.getManager().getConfig();
+        String team100Name = config.getString("teams.blue.name");
+        String team200Name = config.getString("teams.red.name");
+        List<Integer> team100Color = config.getIntList("teams.blue.rgbColor");
+        List<Integer> team200Color = config.getIntList("teams.red.rgbColor");
+        TeamNames teamNames = new TeamNames(team100Name, team200Name);
+        TeamColors teamColors = new TeamColors(team100Color, team200Color);
+        WebappConfig webappConfig = new WebappConfig();
+        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors, webappConfig);
+        this.wsServer.broadcastWebappMessage(ChampSelectCreateMessage.class, createMessage);
+
+        List<String> championKeys = new ArrayList<>();
+        Champions.get().forEach(champ -> championKeys.add(champ.getKey()));
+        PreloadSplashImagesMessage preloadMessage = new PreloadSplashImagesMessage(championKeys);
+        this.wsServer.broadcastWebappMessage(PreloadSplashImagesMessage.class, preloadMessage);
+    }
+
+    private void handleSummonerNamesUpdate(String message) {
+        String json = WSClient.getDataFromWampMessage(message);
+        if (json == null) {
+            return;
+        }
+        LOGGER.debug("Received summoner names message!");
+
+        // Deserialize JSON
+        Type type = Types.newParameterizedType(List.class, SummonerIdAndName.class);
+        JsonAdapter<List<SummonerIdAndName>> jsonAdapter = this.moshi.adapter(type);
+        List<SummonerIdAndName> summonerIdsAndNames;
+        try {
+            summonerIdsAndNames = jsonAdapter.fromJson(json);
+            if (summonerIdsAndNames == null || summonerIdsAndNames.isEmpty()) {
+                throw new JsonDataException("summonerIdsAndNames is null or empty!");
+            }
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+            return;
+        }
+
+        // We update our playerList with the summoner names
+        Optional<Player> playerFound;
+        for (SummonerIdAndName idAndName : summonerIdsAndNames) {
+            Long summonerId = idAndName.getSummonerId();
+            playerFound = this.playerList.stream().filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId)).findFirst();
+            playerFound.ifPresent(player -> player.setSummonerName(idAndName.getDisplayName()));
+        }
+        this.playerList.forEach(player -> {
+            if (player.getSummonerName() == null || player.getSummonerName().isEmpty()) {
+                player.setSummonerName("Player " + (player.getAdjustedCellId() + 1));
+            }
+        });
+
+        // Finally we communicate the summoner names to the webapp...
+        Map<Integer, String> playerMap = new HashMap<>();
+        for (Player player : this.playerList) {
+            String summonerName = player.getSummonerName();
+            playerMap.put((int) player.getAdjustedCellId(), summonerName);
+        }
+        PlayerNamesMessage playerNamesMessage = new PlayerNamesMessage(playerMap);
+        this.wsServer.broadcastWebappMessage(PlayerNamesMessage.class, playerNamesMessage);
+
+        // And handle the messages waiting in the queue
+        SessionMessage msg2;
+        while ((msg2 = this.updateMessagesQueue.poll()) != null) {
+            this.handleChampSelectUpdate(msg2);
+        }
+        LOGGER.debug("Update messages queue is cleared.");
+        this.receivedSummonerNamesUpdate = true;
     }
 
     private void handleChampSelectUpdate(SessionMessage message) {
@@ -365,13 +335,13 @@ public class WSClient extends WebSocketClient {
                             builder.append(" is banning... ");
 
                             SetBanPickMessage message1 = new SetBanPickMessage(player.getAdjustedCellId(), false, true);
-                            this.sendMessagesToWebapp(SetBanPickMessage.class, message1);
+                            this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message1);
                             if (action.getChampionId() != 0) {
                                 Champion champion = Champion.withId(action.getChampionId()).get();
                                 builder.append("Currently chosen: ").append(champion.getName());
 
                                 SetBanIntentMessage banIntentMessage = new SetBanIntentMessage(champion.getKey(), player.getAdjustedCellId());
-                                this.sendMessagesToWebapp(SetBanIntentMessage.class, banIntentMessage);
+                                this.wsServer.broadcastWebappMessage(SetBanIntentMessage.class, banIntentMessage);
                             }
                             LOGGER.debug(builder.toString());
                             break;
@@ -380,14 +350,14 @@ public class WSClient extends WebSocketClient {
                             builder.append(" is picking... ");
 
                             SetBanPickMessage message1 = new SetBanPickMessage(player.getAdjustedCellId(), true, false);
-                            this.sendMessagesToWebapp(SetBanPickMessage.class, message1);
+                            this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message1);
 
                             if (action.getChampionId() != 0) {
                                 Champion champion = Champion.withId(action.getChampionId()).get();
                                 builder.append("Currently chosen: ").append(champion.getName());
 
                                 SetPickIntentMessage msg2 = new SetPickIntentMessage(player.getAdjustedCellId(), champion.getKey());
-                                this.sendMessagesToWebapp(SetPickIntentMessage.class, msg2);
+                                this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg2);
                             }
                             LOGGER.debug(builder.toString());
                             break;
@@ -428,7 +398,7 @@ public class WSClient extends WebSocketClient {
                                 LOGGER.debug("New champion selected by " + player.getSummonerName() + "! " + championName);
                                 if (updatedAction.getType() == PICK) {
                                     SetPickIntentMessage msg = new SetPickIntentMessage(player.getAdjustedCellId(), championKey);
-                                    this.sendMessagesToWebapp(SetPickIntentMessage.class, msg);
+                                    this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg);
                                 }
                             } else {
                                 LOGGER.error("Unknown player with cellId " + updatedAction.getActorCellId());
@@ -452,7 +422,7 @@ public class WSClient extends WebSocketClient {
 
             // Update timer in webapp
             SetTimerMessage setTimerMessage = new SetTimerMessage(timer.getInternalNowInEpochMs(), timer.getAdjustedTimeLeftInPhase());
-            this.sendMessagesToWebapp(SetTimerMessage.class, setTimerMessage);
+            this.wsServer.broadcastWebappMessage(SetTimerMessage.class, setTimerMessage);
         }
 
         // Setup summoner spells and handle their changes
@@ -470,7 +440,7 @@ public class WSClient extends WebSocketClient {
                     long adjustedCellId = player.getAdjustedCellId();
                     SetSummonerSpellsMessage msg1 = new SetSummonerSpellsMessage(adjustedCellId, 1, spell1Id);
                     SetSummonerSpellsMessage msg2 = new SetSummonerSpellsMessage(adjustedCellId, 2, spell2Id);
-                    this.sendMessagesToWebapp(SetSummonerSpellsMessage.class, msg1, msg2);
+                    this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg1, msg2);
                 }
             }
         } else {
@@ -489,14 +459,14 @@ public class WSClient extends WebSocketClient {
                             + SummonerSpell.withId(newSpell1Id.intValue()).get().getName());
 
                     SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 1, newSpell1Id);
-                    this.sendMessagesToWebapp(SetSummonerSpellsMessage.class, msg);
+                    this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg);
                 }
                 if (!newSpell2Id.equals(oldPs.getSpell2Id()) && newSpell2Id != 0) {
                     LOGGER.debug(summonerName + " changed summoner spell 2 to "
                             + SummonerSpell.withId(newSpell2Id.intValue()).get().getName());
 
                     SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 2, newSpell2Id);
-                    this.sendMessagesToWebapp(SetSummonerSpellsMessage.class, msg);
+                    this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg);
                 }
             }
         }
@@ -513,7 +483,7 @@ public class WSClient extends WebSocketClient {
                 if (newPs.getChampionId() != oldPs.getChampionId()) {
                     SetPickIntentMessage msg = new SetPickIntentMessage(adjustedCellId,
                             Champion.withId(newPs.getChampionId()).get().getKey());
-                    this.sendMessagesToWebapp(SetPickIntentMessage.class, msg);
+                    this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg);
                 }
             }
         }
@@ -522,11 +492,52 @@ public class WSClient extends WebSocketClient {
         this.previousSession = message.getSession();
     }
 
-    @SafeVarargs
-    private final <T> void sendMessagesToWebapp(Class<T> type, T... messages) {
-        JsonAdapter<T> adapter = this.moshi.adapter(type);
-        for (T message : messages) {
-            this.wsServer.broadcast(adapter.toJson(message));
+    private void handleChampSelectDelete() {
+        if (this.previousSession != null) {
+            this.summonerNamesCallId = null;
+            this.previousSession = null;
+            // Send the request to the web component asking to close champion select.
+            LOGGER.info("Champion select has ended.");
+
+            ChampSelectDeleteMessage deleteMessage = new ChampSelectDeleteMessage();
+            this.wsServer.broadcastWebappMessage(ChampSelectDeleteMessage.class, deleteMessage);
+        }
+    }
+
+    private void requestChatSessionState() {
+        this.chatCallId = RandomStringUtils.randomAlphanumeric(10);
+        String query = "[2, \"" + this.chatCallId + "\", \"GetLolChatV1Session\"]";
+        this.send(query);
+    }
+
+    private void handleChatSessionMessage(String message) {
+        String json = WSClient.getDataFromWampMessage(message);
+        // If there is no JSON data or we get a CALLERROR
+        if (json == null || message.startsWith("[4")) {
+            // chat plugin isn't loaded, most likely
+            try {
+                LOGGER.debug("Waiting for chat plugin to load...");
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                LOGGER.error(e.getMessage(), e);
+            }
+            this.requestChatSessionState(); // we request the chat state again
+            return;
+        }
+
+        String sessionState = WSClient.getChatSessionStateFromJson(json);
+        if (sessionState != null && (sessionState.equals("loaded") || sessionState.equals("connected"))) {
+            this.send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
+            LOGGER.debug("Subscribed to champ select events.");
+        } else {
+            // chat plugin probably still not loaded
+            try {
+                LOGGER.debug("Waiting for chat plugin to load... (part 2)");
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                LOGGER.error(e.getMessage(), e);
+            }
+            this.requestChatSessionState();
         }
     }
 
@@ -571,19 +582,19 @@ public class WSClient extends WebSocketClient {
                 if (this.bans.canAdd(teamId)) {
                     int banId = this.bans.addBan(teamId, player.getAdjustedCellId(), championKey);
                     NewBanMessage msg1 = new NewBanMessage(championKey, banId);
-                    this.sendMessagesToWebapp(NewBanMessage.class, msg1);
+                    this.wsServer.broadcastWebappMessage(NewBanMessage.class, msg1);
                 }
                 SetBanPickMessage message = new SetBanPickMessage(player.getAdjustedCellId(), false, false);
-                this.sendMessagesToWebapp(SetBanPickMessage.class, message);
+                this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message);
                 break;
             }
             case PICK: {
                 builder.append(" picked ").append(championName);
 
                 SetPickIntentMessage msg1 = new SetPickIntentMessage(player.getAdjustedCellId(), championKey);
-                this.sendMessagesToWebapp(SetPickIntentMessage.class, msg1);
+                this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg1);
                 SetBanPickMessage message = new SetBanPickMessage(player.getAdjustedCellId(), false, false);
-                this.sendMessagesToWebapp(SetBanPickMessage.class, message);
+                this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message);
                 break;
             }
             case UNKNOWN:
@@ -669,18 +680,6 @@ public class WSClient extends WebSocketClient {
             }
         }
         return newlyCompletedActions;
-    }
-
-    private void handleChampSelectDelete() {
-        if (this.previousSession != null) {
-            this.summonerNamesCallId = null;
-            this.previousSession = null;
-            // Send the request to the web component asking to close champion select.
-            LOGGER.info("Champion select has ended.");
-
-            ChampSelectDeleteMessage deleteMessage = new ChampSelectDeleteMessage();
-            this.sendMessagesToWebapp(ChampSelectDeleteMessage.class, deleteMessage);
-        }
     }
 
     /**

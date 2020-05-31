@@ -1,6 +1,9 @@
 package com.jcs.overlay.websocket;
 
 import com.jcs.overlay.App;
+import com.jcs.overlay.websocket.messages.J2W.NewBanMessage;
+import com.jcs.overlay.websocket.messages.J2W.WebappMessage;
+import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -13,7 +16,7 @@ import java.net.InetSocketAddress;
 
 public class WSServer extends WebSocketServer {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSServer.class);
-    private final Moshi moshi = new Moshi.Builder().build();
+    private static final Moshi MOSHI = new Moshi.Builder().build();
 
     public WSServer(InetSocketAddress address) {
         super(address);
@@ -48,5 +51,22 @@ public class WSServer extends WebSocketServer {
     @Override
     public void onStart() {
         LOGGER.info("WebSocket server started successfully.");
+    }
+
+    /**
+     * Sends {@link WebappMessage}s to all the clients connected to the WebSocket server, most likely the webapp.
+     *
+     * @param clazz    The {@link Class} of the message(s) you want to send.
+     *                 For example, if you want to send a {@link NewBanMessage}, use {@code NewBanMessage.class}.
+     *                 This class <i>must</i> extend {@link WebappMessage}.
+     * @param messages One or more messages of type {@code <T>} you want to be sent.
+     * @param <T>      Should match the {@code clazz} parameter.
+     */
+    @SafeVarargs
+    public final <T extends WebappMessage> void broadcastWebappMessage(Class<T> clazz, T... messages) {
+        JsonAdapter<T> adapter = MOSHI.adapter(clazz);
+        for (T message : messages) {
+            this.broadcast(adapter.toJson(message));
+        }
     }
 }

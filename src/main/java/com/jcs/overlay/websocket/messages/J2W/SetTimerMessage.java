@@ -1,7 +1,7 @@
 package com.jcs.overlay.websocket.messages.J2W;
 
 @SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
-public class SetTimerMessage {
+public class SetTimerMessage extends WebappMessage {
     private final String messageType = "SetTimer";
     private final Long internalNow;
     private final long adjustedTimeLeftInPhase;

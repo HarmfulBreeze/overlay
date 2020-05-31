@@ -13,7 +13,6 @@ import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpells;
 import org.cef.CefApp;
 import org.java_websocket.client.WebSocketClient;
-import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +34,7 @@ public class App {
     private final SettingsWatcher settingsWatcher;
     private final LockfileMonitor lockfileMonitor;
     private final Thread lockfileMonitorThread;
-    private final WebSocketServer wsServer;
+    private final WSServer wsServer;
     private WebSocketClient wsClient;
     private WSAutoReconnect autoReconnect;
     private Thread autoReconnectThread;
@@ -79,7 +78,7 @@ public class App {
         return APP;
     }
 
-    public WebSocketServer getWsServer() {
+    public WSServer getWsServer() {
         return this.wsServer;
     }
 

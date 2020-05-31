@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
-public class ChampSelectCreateMessage {
+public class ChampSelectCreateMessage extends WebappMessage {
     private final TeamNames teamNames;
     private final TeamColors teamColors;
     private final WebappConfig webappConfig;
