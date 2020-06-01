@@ -1,5 +1,6 @@
 # Overlay
 ###### An easy-to-use, yet very customizable application to display champion select information in streams
+![Gradle CI](https://github.com/piorrro33/overlay/workflows/Gradle%20CI/badge.svg?branch=master)
 
 ![Screenshot](img/overlay_screenshot.png "Screenshot")
 
