@@ -299,7 +299,7 @@ public class WSClient extends WebSocketClient {
         }
 
         // Update the player list with the new player selections
-        this.updatePlayerList(session);
+        this.updatePlayerList(session.getMyTeam(), session.getTheirTeam());
 
         // Get the current active action group, if -1 then newActions is null or empty
         int activeActionGroupIndex = this.getActiveActionGroupIndex(newActions);
@@ -541,10 +541,10 @@ public class WSClient extends WebSocketClient {
         }
     }
 
-    private void updatePlayerList(Session session) {
+    private void updatePlayerList(List<PlayerSelection> myTeam, List<PlayerSelection> theirTeam) {
         List<PlayerSelection> newPSelections = new ArrayList<>();
-        newPSelections.addAll(session.getMyTeam());
-        newPSelections.addAll(session.getTheirTeam());
+        newPSelections.addAll(myTeam);
+        newPSelections.addAll(theirTeam);
         for (int i = 0; i < newPSelections.size(); i++) {
             this.playerList.get(i).setPlayerSelection(newPSelections.get(i));
         }
