@@ -39,6 +39,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.jcs.overlay.websocket.messages.C2J.champselect.Action.ActionType.*;
 import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.TeamColors;
@@ -191,7 +192,7 @@ public class WSClient extends WebSocketClient {
         if (this.summonerNamesCallId == null) {
             this.sendUpdateNamesRequest(jsonMessage.getSession());
             this.updateMessagesQueue.add(jsonMessage);
-            this.adjustCellIds();
+            adjustCellIds(this.playerList);
         } else if (!this.receivedSummonerNamesUpdate) {
             LOGGER.debug("Added update message to queue while waiting for names.");
             this.updateMessagesQueue.add(jsonMessage);
@@ -251,7 +252,9 @@ public class WSClient extends WebSocketClient {
         Optional<Player> playerFound;
         for (SummonerIdAndName idAndName : summonerIdsAndNames) {
             Long summonerId = idAndName.getSummonerId();
-            playerFound = this.playerList.stream().filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId)).findFirst();
+            playerFound = this.playerList.stream()
+                    .filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId))
+                    .findFirst();
             playerFound.ifPresent(player -> player.setSummonerName(idAndName.getDisplayName()));
         }
         this.playerList.forEach(player -> {
@@ -282,7 +285,8 @@ public class WSClient extends WebSocketClient {
         boolean isFirstUpdate = this.previousSession == null;
 
         List<List<Action>> newActions = session.getActions();
-        List<List<Action>> oldActions;
+        List<List<Action>> oldActions = null;           // Used for actions
+        List<PlayerSelection> oldPSelections = null;    // Used for summoner spells and trades
         if (isFirstUpdate) { // First update
             if (session.isSpectating()) {
                 LOGGER.debug("Currently spectating the game.");
@@ -292,13 +296,16 @@ public class WSClient extends WebSocketClient {
             if (session.getMyTeam() != null) {
                 this.myTeamIsBlueTeam = this.isMyTeamBlueTeam(session.getMyTeam());
             }
-            oldActions = null;
         } else { // any other update
             oldActions = this.previousSession.getActions();
+            oldPSelections = this.getPlayerSelectionList(this.previousSession.getMyTeam(), this.previousSession.getTheirTeam());
         }
 
         // Update the player list with the new player selections
-        this.updatePlayerList(session.getMyTeam(), session.getTheirTeam());
+        List<PlayerSelection> newPSelections = this.getPlayerSelectionList(session.getMyTeam(), session.getTheirTeam());
+        for (int i = 0; i < newPSelections.size(); i++) {
+            this.playerList.get(i).setPlayerSelection(newPSelections.get(i));
+        }
 
         // Get the current active action group, if -1 then newActions is null or empty
         int activeActionGroupIndex = this.getActiveActionGroupIndex(newActions);
@@ -308,69 +315,14 @@ public class WSClient extends WebSocketClient {
             if (isFirstUpdate || activeActionGroupIndex != this.previousActiveActionGroup) {
                 if (!isFirstUpdate) { // first update -> no oldActions
                     // At least one newly completed action needs to be handled
-                    List<Action> newlyCompletedActions = this.getNewlyCompletedActions(oldActions, newActions);
-                    for (Action action : newlyCompletedActions) {
-                        this.handleCompletedAction(action);
-                    }
+                    this.getNewlyCompletedActions(oldActions, newActions).forEach(this::handleStartedOrCompletedAction);
                 }
                 // Handle new active group actions
-                for (Action action : newActions.get(activeActionGroupIndex)) {
-                    if (action.getType() == TEN_BANS_REVEAL) {
-                        // Basic handling of ten bans reveal, we don't care about it
-                        LOGGER.debug("Ten bans reveal started.");
-                        continue;
-                    }
-                    Player player = this.getPlayerByCellId(action.getActorCellId());
-                    if (player == null) {
-                        LOGGER.error("Unknown player with cellId " + action.getActorCellId());
-                        continue;
-                    }
-                    StringBuilder builder = new StringBuilder(player.getSummonerName());
-                    switch (action.getType()) {
-                        case VOTE:
-                            LOGGER.debug("Received a vote message.");
-                            break;
-                        case BAN: {
-                            builder.append(" is banning... ");
-
-                            SetBanPickMessage message1 = new SetBanPickMessage(player.getAdjustedCellId(), false, true);
-                            this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message1);
-                            if (action.getChampionId() != 0) {
-                                Champion champion = Champion.withId(action.getChampionId()).get();
-                                builder.append("Currently chosen: ").append(champion.getName());
-
-                                SetBanIntentMessage banIntentMessage = new SetBanIntentMessage(champion.getKey(), player.getAdjustedCellId());
-                                this.wsServer.broadcastWebappMessage(SetBanIntentMessage.class, banIntentMessage);
-                            }
-                            LOGGER.debug(builder.toString());
-                            break;
-                        }
-                        case PICK: {
-                            builder.append(" is picking... ");
-
-                            SetBanPickMessage message1 = new SetBanPickMessage(player.getAdjustedCellId(), true, false);
-                            this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message1);
-
-                            if (action.getChampionId() != 0) {
-                                Champion champion = Champion.withId(action.getChampionId()).get();
-                                builder.append("Currently chosen: ").append(champion.getName());
-
-                                SetPickIntentMessage msg2 = new SetPickIntentMessage(player.getAdjustedCellId(), champion.getKey());
-                                this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg2);
-                            }
-                            LOGGER.debug(builder.toString());
-                            break;
-                        }
-                        case UNKNOWN:
-                            LOGGER.warn("Received unknown action type!!");
-                            break;
-                        // No need for a default case, it is already handled by ActionType.UNKNOWN
-                    }
-                }
+                newActions.get(activeActionGroupIndex).forEach(this::handleStartedOrCompletedAction);
             } else { // Active action group did not change, let's handle action updates
                 List<Action> activeActionGroup = newActions.get(activeActionGroupIndex);
                 List<Action> oldActiveActionGroup = oldActions.get(activeActionGroupIndex);
-                if (activeActionGroup.size() != oldActions.get(activeActionGroupIndex).size()) {
+                if (activeActionGroup.size() != oldActiveActionGroup.size()) {
                     LOGGER.warn("newActions action group size is different!! might throw a lot");
                 }
                 for (int i = 0; i < activeActionGroup.size(); i++) {
@@ -404,13 +356,14 @@ public class WSClient extends WebSocketClient {
                             }
                         }
                         if (updatedAction.isCompleted() != oldAction.isCompleted()) { // Action just completed
-                            this.handleCompletedAction(updatedAction);
+                            this.handleStartedOrCompletedAction(updatedAction);
                         }
                     }
                 }
             }
         }
 
+        // Handle timer
         Timer timer = session.getTimer();
         Timer.Phase timerPhase = timer.getPhase();
         // TODO: handle unknown phase better
@@ -424,7 +377,7 @@ public class WSClient extends WebSocketClient {
             this.wsServer.broadcastWebappMessage(SetTimerMessage.class, setTimerMessage);
         }
 
-        // Setup summoner spells and handle their changes
+        // Setup summoner spells
         if (isFirstUpdate) {
             for (Player player : this.playerList) {
                 PlayerSelection ps = player.getPlayerSelection();
@@ -442,10 +395,7 @@ public class WSClient extends WebSocketClient {
                     this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg1, msg2);
                 }
             }
-        } else {
-            List<PlayerSelection> oldPSelections = new ArrayList<>();
-            oldPSelections.addAll(this.previousSession.getMyTeam());
-            oldPSelections.addAll(this.previousSession.getTheirTeam());
+        } else { // Handle summoner spell changes
             for (int i = 0; i < this.playerList.size(); i++) {
                 PlayerSelection newPs = this.playerList.get(i).getPlayerSelection();
                 PlayerSelection oldPs = oldPSelections.get(i);
@@ -472,7 +422,7 @@ public class WSClient extends WebSocketClient {
 
         // Picks are over, so we need to watch champion trades
         if (timerPhase == Timer.Phase.FINALIZATION) {
-            List<PlayerSelection> oldPSelections = new ArrayList<>();
+            assert oldPSelections != null; // Will be non-null for sure as isFirstUpdate = false
             oldPSelections.addAll(this.previousSession.getMyTeam());
             oldPSelections.addAll(this.previousSession.getTheirTeam());
             for (int i = 0; i < this.playerList.size(); i++) {
@@ -540,71 +490,151 @@ public class WSClient extends WebSocketClient {
         }
     }
 
-    private void updatePlayerList(List<PlayerSelection> myTeam, List<PlayerSelection> theirTeam) {
-        List<PlayerSelection> newPSelections = new ArrayList<>();
-        newPSelections.addAll(myTeam);
-        newPSelections.addAll(theirTeam);
-        for (int i = 0; i < newPSelections.size(); i++) {
-            this.playerList.get(i).setPlayerSelection(newPSelections.get(i));
-        }
-    }
+    private void handleStartedOrCompletedAction(Action action) {
+        /*
+         * Every action needs to be logged. This builder should have debug text appended to it and the output is fed
+         * to the logger.
+         */
+        StringBuilder debug = new StringBuilder();
 
-    private void handleCompletedAction(Action action) {
-        // Handle ten bans reveal
-        if (action.getType() == TEN_BANS_REVEAL) {
-            LOGGER.debug("Ten bans reveal completed.");
-            return;
-        }
-
-        Player player = this.getPlayerByCellId(action.getActorCellId());
-        if (player == null) {
-            LOGGER.error("Unknown player with cellId " + action.getActorCellId());
-            return;
-        }
-        StringBuilder builder = new StringBuilder(player.getSummonerName());
-
-        String championName, championKey;
-        if (action.getChampionId() != 0) {
-            Champion champion = Champion.withId(action.getChampionId()).get();
-            championName = champion.getName();
-            championKey = champion.getKey();
-        } else { // Hack for no ban
-            championName = "None";
-            championKey = "None";
-        }
-
+        // Handle every type of action
         switch (action.getType()) {
-            case BAN: {
-                builder.append(" banned ").append(championName);
-
-                int teamId = this.getTeamIdFromCellId(action.getActorCellId());
-                if (this.bans.canAdd(teamId)) {
-                    int banId = this.bans.addBan(teamId, player.getAdjustedCellId(), championKey);
-                    NewBanMessage msg1 = new NewBanMessage(championKey, banId);
-                    this.wsServer.broadcastWebappMessage(NewBanMessage.class, msg1);
+            case VOTE: {
+                // Stub
+                if (!action.isCompleted()) {
+                    debug.append("Received a vote message.");
+                } else {
+                    debug.append("Action of type vote completed.");
                 }
-                SetBanPickMessage message = new SetBanPickMessage(player.getAdjustedCellId(), false, false);
-                this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message);
+                break;
+            }
+            case TEN_BANS_REVEAL: {
+                // Stub
+                if (!action.isCompleted()) {
+                    debug.append("Ten bans reveal started.");
+                } else {
+                    debug.append("Ten bans reveal completed.");
+                }
+                break;
+            }
+            case BAN: {
+                // TODO: remove duplicate code
+                // Handle player not found
+                Player player = this.getPlayerByCellId(action.getActorCellId());
+                if (player == null) {
+                    LOGGER.error("Unknown player with cellId " + action.getActorCellId());
+                    return;
+                }
+
+                // Set useful variables
+                String summonerName = player.getSummonerName();
+                String championName, championKey;
+                if (action.getChampionId() != 0) {
+                    Champion champion = Champion.withId(action.getChampionId()).get();
+                    championName = champion.getName();
+                    championKey = champion.getKey();
+                } else { // Hack for no ban
+                    championName = "None";
+                    championKey = "None";
+                }
+
+                // Start handling
+                if (!action.isCompleted()) {
+                    debug.append(summonerName).append(" is banning... ");
+
+                    // Show banning text in the webapp
+                    SetBanPickMessage msg = new SetBanPickMessage(player.getAdjustedCellId(), false, true);
+                    this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, msg);
+
+                    // Set the selected champion in the webapp
+                    if (!championName.equals("None")) {
+                        debug.append("Currently chosen: ").append(championName);
+
+                        SetBanIntentMessage banIntentMessage = new SetBanIntentMessage(championKey, player.getAdjustedCellId());
+                        this.wsServer.broadcastWebappMessage(SetBanIntentMessage.class, banIntentMessage);
+                    }
+                    LOGGER.debug(debug.toString());
+                } else {
+                    debug.append(summonerName).append(" banned ").append(championName);
+
+                    // Add the ban to the holder
+                    int teamId = player.getPlayerSelection().getTeam();
+                    if (this.bans.canAdd(teamId)) {
+                        int banId = this.bans.addBan(player, championKey);
+
+                        // Send the ban to the webapp
+                        NewBanMessage msg = new NewBanMessage(championKey, banId);
+                        this.wsServer.broadcastWebappMessage(NewBanMessage.class, msg);
+                    }
+
+                    // Hide the banning text
+                    SetBanPickMessage msg = new SetBanPickMessage(player.getAdjustedCellId(), false, false);
+                    this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, msg);
+                }
                 break;
             }
             case PICK: {
-                builder.append(" picked ").append(championName);
+                // TODO: remove duplicate code
+                // Handle player not found
+                Player player = this.getPlayerByCellId(action.getActorCellId());
+                if (player == null) {
+                    LOGGER.error("Unknown player with cellId " + action.getActorCellId());
+                    return;
+                }
 
-                SetPickIntentMessage msg1 = new SetPickIntentMessage(player.getAdjustedCellId(), championKey);
-                this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg1);
-                SetBanPickMessage message = new SetBanPickMessage(player.getAdjustedCellId(), false, false);
-                this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message);
+                // Set useful variables
+                String summonerName = player.getSummonerName();
+                String championName, championKey;
+                if (action.getChampionId() != 0) {
+                    Champion champion = Champion.withId(action.getChampionId()).get();
+                    championName = champion.getName();
+                    championKey = champion.getKey();
+                } else { // Hack for no ban
+                    championName = "None";
+                    championKey = "None";
+                }
+
+                // Start handling
+                if (!action.isCompleted()) {
+                    debug.append(summonerName).append(" is picking... ");
+
+                    // Show the picking text in the webapp
+                    SetBanPickMessage msg = new SetBanPickMessage(player.getAdjustedCellId(), true, false);
+                    this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, msg);
+
+                    // Set the selected champion in the webapp
+                    if (!championName.equals("None")) {
+                        debug.append("Currently chosen: ").append(championName);
+
+                        SetPickIntentMessage msg2 = new SetPickIntentMessage(player.getAdjustedCellId(), championKey);
+                        this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg2);
+                    }
+                } else {
+                    debug.append(summonerName).append(" picked ").append(championName);
+
+                    // Set the selected champion in the webapp
+                    SetPickIntentMessage msg1 = new SetPickIntentMessage(player.getAdjustedCellId(), championKey);
+                    this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg1);
+
+                    // Hide the picking text in the webapp
+                    SetBanPickMessage message = new SetBanPickMessage(player.getAdjustedCellId(), false, false);
+                    this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message);
+                }
                 break;
             }
-            case UNKNOWN:
-                builder.append("Action of unknown type completed.");
+            case UNKNOWN: {
+                if (!action.isCompleted()) {
+                    debug.append("Received unknown action type!!");
+                } else {
+                    debug.append("Action of unknown type completed.");
+                }
                 break;
-            case VOTE:
-                builder.append("Action of type vote completed.");
-                break;
+            }
+            // No need for a default case, it's already handled by ActionType.UNKNOWN
         }
 
-        LOGGER.debug(builder.toString());
+        // Send the built debug string to the logger
+        LOGGER.debug(debug.toString());
     }
 
     /**
@@ -692,9 +722,7 @@ public class WSClient extends WebSocketClient {
         StringBuilder builder = new StringBuilder();
         builder.append("[2, \"").append(this.summonerNamesCallId).append("\", \"/lol-summoner/v2/summoner-names\", [");
 
-        List<PlayerSelection> allPlayers = new ArrayList<>();
-        allPlayers.addAll(session.getMyTeam());
-        allPlayers.addAll(session.getTheirTeam());
+        List<PlayerSelection> allPlayers = this.getPlayerSelectionList(session.getMyTeam(), session.getTheirTeam());
 
         for (PlayerSelection player : allPlayers) {
             Player wrapper = new Player(player);
@@ -711,24 +739,24 @@ public class WSClient extends WebSocketClient {
         LOGGER.debug("Sent update name request: " + query);
     }
 
-    private void adjustCellIds() {
-        int c = 5;
-        for (Player player : this.playerList) {
+    /**
+     * Sets the adjustedCellId of every player in the supplied {@code playerList}.
+     *
+     * @param playerList A {@code List} of {@link Player} containing every player in the draft.
+     */
+    private static void adjustCellIds(List<Player> playerList) {
+        int blueCounter = 0;
+        int redCounter = 5;
+        for (Player player : playerList) {
             int teamId = player.getPlayerSelection().getTeam();
             if (teamId == 2) {
-                player.setAdjustedCellId(c);
-                c++;
+                player.setAdjustedCellId(redCounter);
+                redCounter++;
             } else {
-                player.setAdjustedCellId(player.getPlayerSelection().getCellId());
+                player.setAdjustedCellId(blueCounter);
+                blueCounter++;
             }
         }
-    }
-
-    private int getTeamIdFromCellId(long cellId) {
-        Optional<Player> opt = this.playerList.stream()
-                .filter(player -> player.getPlayerSelection().getCellId() == cellId)
-                .findFirst();
-        return opt.map(player -> player.getPlayerSelection().getTeam()).orElse(-1);
     }
 
     /**
@@ -754,7 +782,13 @@ public class WSClient extends WebSocketClient {
     @Nullable
     private Player getPlayerByCellId(long cellId) {
         try {
-            return this.playerList.get((int) cellId);
+            if (this.myTeamIsBlueTeam) { // If myTeam is blue team then it's really easy
+                return this.playerList.get((int) cellId);
+            } else { // Else we go and find the player with the same cellID with the Stream API
+                Stream<Player> stream = this.playerList.stream();
+                Optional<Player> player = stream.filter(p -> p.getPlayerSelection().getCellId() == cellId).findFirst();
+                return player.orElse(null);
+            }
         } catch (IndexOutOfBoundsException e) {
             return null;
         }
@@ -771,5 +805,25 @@ public class WSClient extends WebSocketClient {
         Optional<Player> opt = this.playerList.stream().filter(player -> player.getAdjustedCellId() == adjustedCellId)
                 .findFirst();
         return opt.orElse(null);
+    }
+
+    /**
+     * Gets all the PlayerSelection from the provided {@link List}s and puts them in the same order as the player list.
+     *
+     * @param myTeam    A {@link List} of {@link PlayerSelection} containing all the selections from {@code myTeam}.
+     * @param theirTeam A {@link List} of {@link PlayerSelection} containing all the selections from {@code theirTeam}.
+     * @return The resulting {@link List}.
+     */
+    private List<PlayerSelection> getPlayerSelectionList(List<PlayerSelection> myTeam, List<PlayerSelection> theirTeam) {
+        List<PlayerSelection> psList = new ArrayList<>();
+        // Always have blue team before red team
+        if (this.myTeamIsBlueTeam) {
+            psList.addAll(myTeam);
+            psList.addAll(theirTeam);
+        } else {
+            psList.addAll(theirTeam);
+            psList.addAll(myTeam);
+        }
+        return psList;
     }
 }

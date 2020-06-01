@@ -19,23 +19,20 @@ public class Bans {
         this.redTeamOffset = size / 2;
     }
 
-    public int addBan(int teamId, long adjustedCellId, String championKey) {
-        return this.addBan(teamId, (int) adjustedCellId, championKey);
-    }
-
     /**
-     * Adds a ban to the array. You should first check if it can be added with {@link Bans#canAdd(int)}.
+     * Adds a ban to the array. You should first check if it can be added with {@link Bans#canAdd}.
      *
-     * @param teamId         1 = blue, 2 = red
-     * @param adjustedCellId The adjustedCellId of the banning actor.
-     * @param championKey    The {@link Champion} key to be added.
+     * @param player      The banning actor.
+     * @param championKey The {@link Champion} key to be added.
      * @return The array index at which the {@link Champion} key was added.
      * @throws IndexOutOfBoundsException If the array is already full.
      */
-    public int addBan(int teamId, int adjustedCellId, String championKey) {
+    public int addBan(Player player, String championKey) {
+        int teamId = player.getPlayerSelection().getTeam();
         if (!this.canAdd(teamId)) {
             throw new IndexOutOfBoundsException("Ban array is full!");
         }
+        int adjustedCellId = (int) player.getAdjustedCellId();
         int banId = adjustedCellId + this.playerOffset[adjustedCellId];
         this.banArray[banId] = championKey;
         this.playerOffset[adjustedCellId]++;
