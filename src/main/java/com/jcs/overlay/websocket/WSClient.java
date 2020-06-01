@@ -256,7 +256,7 @@ public class WSClient extends WebSocketClient {
         }
         this.playerList.forEach(player -> {
             if (player.getSummonerName() == null || player.getSummonerName().isEmpty()) {
-                player.setSummonerName("Player " + (player.getAdjustedCellId() + 1));
+                player.setSummonerName("Summoner " + (player.getAdjustedCellId() + 1));
             }
         });
 
