@@ -196,7 +196,7 @@ public class WSClient extends WebSocketClient {
             LOGGER.debug("Added update message to queue while waiting for names.");
             this.updateMessagesQueue.add(jsonMessage);
         } else {
-            this.handleChampSelectUpdate(jsonMessage);
+            this.handleChampSelectUpdate(jsonMessage.getSession());
         }
     }
 
@@ -272,14 +272,13 @@ public class WSClient extends WebSocketClient {
         // And handle the messages waiting in the queue
         SessionMessage msg2;
         while ((msg2 = this.updateMessagesQueue.poll()) != null) {
-            this.handleChampSelectUpdate(msg2);
+            this.handleChampSelectUpdate(msg2.getSession());
         }
         LOGGER.debug("Update messages queue is cleared.");
         this.receivedSummonerNamesUpdate = true;
     }
 
-    private void handleChampSelectUpdate(SessionMessage message) {
-        Session session = message.getSession();
+    private void handleChampSelectUpdate(final Session session) {
         boolean isFirstUpdate = this.previousSession == null;
 
         List<List<Action>> newActions = session.getActions();
@@ -489,7 +488,7 @@ public class WSClient extends WebSocketClient {
         }
 
         this.previousActiveActionGroup = activeActionGroupIndex;
-        this.previousSession = message.getSession();
+        this.previousSession = session;
     }
 
     private void handleChampSelectDelete() {
