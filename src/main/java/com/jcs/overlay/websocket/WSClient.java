@@ -54,7 +54,7 @@ public class WSClient extends WebSocketClient {
             .add(Action.ActionType.class, EnumJsonAdapter.create(Action.ActionType.class).withUnknownFallback(UNKNOWN))
             .build();
     private final List<Player> playerList = new ArrayList<>();
-    private final Queue<SessionMessage> updateMessagesQueue = new ConcurrentLinkedQueue<>();
+    private final Queue<Session> updateMessagesQueue = new ConcurrentLinkedQueue<>();
     private Session previousSession = null;
     private boolean receivedSummonerNamesUpdate;
     private boolean myTeamIsBlueTeam;
@@ -189,15 +189,20 @@ public class WSClient extends WebSocketClient {
     }
 
     private void preHandleChampSelectUpdate(SessionMessage jsonMessage) {
+        Session session = jsonMessage.getSession();
         if (this.summonerNamesCallId == null) {
-            this.sendUpdateNamesRequest(jsonMessage.getSession());
-            this.updateMessagesQueue.add(jsonMessage);
+            // Set myTeamIsBlueTeam for the rest of the draft
+            if (session.getMyTeam() != null) {
+                this.myTeamIsBlueTeam = this.isMyTeamBlueTeam(session.getMyTeam());
+            }
+            this.sendUpdateNamesRequest(session);
+            this.updateMessagesQueue.add(session);
             adjustCellIds(this.playerList);
         } else if (!this.receivedSummonerNamesUpdate) {
             LOGGER.debug("Added update message to queue while waiting for names.");
-            this.updateMessagesQueue.add(jsonMessage);
+            this.updateMessagesQueue.add(session);
         } else {
-            this.handleChampSelectUpdate(jsonMessage.getSession());
+            this.handleChampSelectUpdate(session);
         }
     }
 
@@ -273,9 +278,9 @@ public class WSClient extends WebSocketClient {
         this.wsServer.broadcastWebappMessage(PlayerNamesMessage.class, playerNamesMessage);
 
         // And handle the messages waiting in the queue
-        SessionMessage msg2;
-        while ((msg2 = this.updateMessagesQueue.poll()) != null) {
-            this.handleChampSelectUpdate(msg2.getSession());
+        Session session;
+        while ((session = this.updateMessagesQueue.poll()) != null) {
+            this.handleChampSelectUpdate(session);
         }
         LOGGER.debug("Update messages queue is cleared.");
         this.receivedSummonerNamesUpdate = true;
@@ -292,9 +297,6 @@ public class WSClient extends WebSocketClient {
                 LOGGER.debug("Currently spectating the game.");
             } else {
                 LOGGER.debug("Not a spectator!");
-            }
-            if (session.getMyTeam() != null) {
-                this.myTeamIsBlueTeam = this.isMyTeamBlueTeam(session.getMyTeam());
             }
         } else { // any other update
             oldActions = this.previousSession.getActions();
@@ -402,7 +404,7 @@ public class WSClient extends WebSocketClient {
                 String summonerName = this.playerList.get(i).getSummonerName();
                 Long newSpell1Id = newPs.getSpell1Id();
                 Long newSpell2Id = newPs.getSpell2Id();
-                long adjustedCellId = this.getAdjustedCellId(newPs.getCellId());
+                long adjustedCellId = this.playerList.get(i).getAdjustedCellId();
                 if (!newSpell1Id.equals(oldPs.getSpell1Id()) && newSpell1Id != 0) {
                     LOGGER.debug(summonerName + " changed summoner spell 1 to "
                             + SummonerSpell.withId(newSpell1Id.intValue()).get().getName());
@@ -428,7 +430,7 @@ public class WSClient extends WebSocketClient {
             for (int i = 0; i < this.playerList.size(); i++) {
                 PlayerSelection newPs = this.playerList.get(i).getPlayerSelection();
                 PlayerSelection oldPs = oldPSelections.get(i);
-                long adjustedCellId = this.getAdjustedCellId(newPs.getCellId());
+                long adjustedCellId = this.playerList.get(i).getAdjustedCellId();
                 if (newPs.getChampionId() != oldPs.getChampionId()) {
                     SetPickIntentMessage msg = new SetPickIntentMessage(adjustedCellId,
                             Champion.withId(newPs.getChampionId()).get().getKey());
@@ -769,10 +771,6 @@ public class WSClient extends WebSocketClient {
         return myTeam.get(0).getTeam() == 1;
     }
 
-    private long getAdjustedCellId(long actorCellId) {
-        return this.playerList.get((int) actorCellId).getAdjustedCellId();
-    }
-
     /**
      * Gets the {@link Player} with the specified cellId.
      *
@@ -792,19 +790,6 @@ public class WSClient extends WebSocketClient {
         } catch (IndexOutOfBoundsException e) {
             return null;
         }
-    }
-
-    /**
-     * Gets the {@link Player} with the specified adjustedCellId.
-     *
-     * @param adjustedCellId The adjustedCellId from the player list.
-     * @return The {@link Player} with the specified adjustedCellId, or null if there isn't any.
-     */
-    @Nullable
-    private Player getPlayerByAdjustedCellId(long adjustedCellId) {
-        Optional<Player> opt = this.playerList.stream().filter(player -> player.getAdjustedCellId() == adjustedCellId)
-                .findFirst();
-        return opt.orElse(null);
     }
 
     /**
