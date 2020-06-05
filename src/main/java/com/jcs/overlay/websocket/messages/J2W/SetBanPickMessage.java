@@ -12,4 +12,9 @@ public class SetBanPickMessage extends WebappMessage {
         this.isPicking = isPicking;
         this.isBanning = isBanning;
     }
+
+    @Override
+    public String getMessageType() {
+        return this.messageType;
+    }
 }

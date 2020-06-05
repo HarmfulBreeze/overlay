@@ -10,4 +10,9 @@ public class SetTimerMessage extends WebappMessage {
         this.internalNow = internalNow;
         this.adjustedTimeLeftInPhase = adjustedTimeLeftInPhase;
     }
+
+    @Override
+    public String getMessageType() {
+        return this.messageType;
+    }
 }

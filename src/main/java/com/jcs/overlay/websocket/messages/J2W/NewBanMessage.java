@@ -10,4 +10,9 @@ public class NewBanMessage extends WebappMessage {
         this.championKey = championKey;
         this.banId = banId;
     }
+
+    @Override
+    public String getMessageType() {
+        return this.messageType;
+    }
 }

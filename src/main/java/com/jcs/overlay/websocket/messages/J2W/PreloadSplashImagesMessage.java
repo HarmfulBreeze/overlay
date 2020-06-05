@@ -10,4 +10,9 @@ public class PreloadSplashImagesMessage extends WebappMessage {
     public PreloadSplashImagesMessage(List<String> championKeys) {
         this.champions = championKeys;
     }
+
+    @Override
+    public String getMessageType() {
+        return this.messageType;
+    }
 }

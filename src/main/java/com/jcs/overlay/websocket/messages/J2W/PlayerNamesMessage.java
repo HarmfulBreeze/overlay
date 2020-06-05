@@ -10,4 +10,9 @@ public class PlayerNamesMessage extends WebappMessage {
     public PlayerNamesMessage(Map<Integer, String> players) {
         this.players = players;
     }
+
+    @Override
+    public String getMessageType() {
+        return this.messageType;
+    }
 }

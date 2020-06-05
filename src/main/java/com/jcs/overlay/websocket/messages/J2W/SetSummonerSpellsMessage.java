@@ -12,4 +12,9 @@ public class SetSummonerSpellsMessage extends WebappMessage {
         this.spellSlot = spellSlot;
         this.spellId = spellId;
     }
+
+    @Override
+    public String getMessageType() {
+        return this.messageType;
+    }
 }

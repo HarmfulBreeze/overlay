@@ -10,4 +10,9 @@ public class SetBanIntentMessage extends WebappMessage {
         this.championKey = championKey;
         this.actorCellId = (short) actorCellId;
     }
+
+    @Override
+    public String getMessageType() {
+        return this.messageType;
+    }
 }

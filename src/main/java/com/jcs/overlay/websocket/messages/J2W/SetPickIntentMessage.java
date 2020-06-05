@@ -10,4 +10,9 @@ public class SetPickIntentMessage extends WebappMessage {
         this.actorCellId = adjustedCellId;
         this.championKey = championKey;
     }
+
+    @Override
+    public String getMessageType() {
+        return this.messageType;
+    }
 }

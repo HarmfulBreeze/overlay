@@ -21,6 +21,11 @@ public class ChampSelectCreateMessage extends WebappMessage {
         this.webappConfig = webappConfig;
     }
 
+    @Override
+    public String getMessageType() {
+        return this.messageType;
+    }
+
     public static class TeamNames {
         private final String team100;
         private final String team200;
@@ -85,6 +90,13 @@ public class ChampSelectCreateMessage extends WebappMessage {
             this.fontColors.put("picks", new Color(picksColorList));
             this.fontColors.put("teamNames", new Color(teamNamesColorList));
             this.fontColors.put("timer", new Color(timerColorList));
+        }
+
+        public WebappConfig(boolean championSplashesEnabled, String teamNamesFontSize, TimerStyle timerStyle, Map<String, Color> fontColors) {
+            this.championSplashesEnabled = championSplashesEnabled;
+            this.teamNamesFontSize = teamNamesFontSize;
+            this.timerStyle = timerStyle;
+            this.fontColors = fontColors;
         }
     }
 }
