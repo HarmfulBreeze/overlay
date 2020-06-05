@@ -54,6 +54,9 @@ public class MainFrame extends JFrame {
                 LOGGER.error("Cannot run the 32-bit version of overlay with a 64-bit Java installation.");
                 LOGGER.error("Download the 64-bit version of overlay or setup 32-bit Java.");
                 App.getApp().stop(true);
+            } else {
+                LOGGER.error("Could not load CEF!", ule);
+                App.getApp().stop(true);
             }
         }
 
