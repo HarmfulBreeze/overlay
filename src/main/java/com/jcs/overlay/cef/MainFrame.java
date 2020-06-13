@@ -31,7 +31,9 @@ public class MainFrame extends JFrame {
 
     public MainFrame(String startURL, boolean useOSR, boolean isTransparent) {
         List<String> cliSwitches = new ArrayList<>();
-        cliSwitches.add("--disable-gpu-compositing");
+        if (SettingsManager.getManager().getConfig().getBoolean("cef.disableGpuCompositing")) {
+            cliSwitches.add("--disable-gpu-compositing");
+        }
         CefApp.addAppHandler(new CefAppHandlerAdapter(cliSwitches.toArray(new String[0])) {
             @Override
             public void stateHasChanged(CefAppState state) {
