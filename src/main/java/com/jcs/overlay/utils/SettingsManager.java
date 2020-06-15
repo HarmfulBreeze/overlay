@@ -1,5 +1,6 @@
 package com.jcs.overlay.utils;
 
+import com.jcs.overlay.websocket.messages.J2W.enums.SummonerSpellsDisplayStrategy;
 import com.typesafe.config.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +34,7 @@ public final class SettingsManager {
             Config fileConfig = ConfigFactory.parseFile(this.configPath.toFile());
             fileConfig.checkValid(ConfigFactory.defaultApplication(), "overlay");
             TimerStyle.checkTimerStyle(fileConfig);
+            SummonerSpellsDisplayStrategy.checkStrategy(fileConfig);
             effectiveConfig = ConfigFactory.load(fileConfig);
         } catch (ConfigException.ValidationFailed | ConfigException.Parse e) {
             LOGGER.error("Config file is invalid, using default configuration. If you wish to recreate the file," +

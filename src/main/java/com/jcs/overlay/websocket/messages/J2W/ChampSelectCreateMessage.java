@@ -2,6 +2,7 @@ package com.jcs.overlay.websocket.messages.J2W;
 
 import com.jcs.overlay.utils.SettingsManager;
 import com.jcs.overlay.utils.TimerStyle;
+import com.jcs.overlay.websocket.messages.J2W.enums.SummonerSpellsDisplayStrategy;
 import com.typesafe.config.Config;
 
 import java.util.HashMap;
@@ -75,12 +76,14 @@ public class ChampSelectCreateMessage extends WebappMessage {
         private final String teamNamesFontSize;
         private final TimerStyle timerStyle;
         private final Map<String, Color> fontColors;
+        private final SummonerSpellsDisplayStrategy summonerSpellsDisplayStrategy;
 
         public WebappConfig() {
             this.championSplashesEnabled = CONFIG.getBoolean("webapp.championSplashesEnabled");
             this.teamNamesFontSize = CONFIG.getString("webapp.teamNamesFontSize");
             this.timerStyle = TimerStyle.getTimerStyle(CONFIG.getString("webapp.timer.style"));
             this.fontColors = new HashMap<>();
+            this.summonerSpellsDisplayStrategy = SummonerSpellsDisplayStrategy.getStrategy(CONFIG.getString("webapp.summonerSpellsDisplayStrategy"));
 
             List<Integer> banColorList = CONFIG.getIntList("webapp.fontColors.bans");
             List<Integer> picksColorList = CONFIG.getIntList("webapp.fontColors.picks");
@@ -92,11 +95,12 @@ public class ChampSelectCreateMessage extends WebappMessage {
             this.fontColors.put("timer", new Color(timerColorList));
         }
 
-        public WebappConfig(boolean championSplashesEnabled, String teamNamesFontSize, TimerStyle timerStyle, Map<String, Color> fontColors) {
+        public WebappConfig(boolean championSplashesEnabled, String teamNamesFontSize, TimerStyle timerStyle, Map<String, Color> fontColors, SummonerSpellsDisplayStrategy summonerSpellsDisplayStrategy) {
             this.championSplashesEnabled = championSplashesEnabled;
             this.teamNamesFontSize = teamNamesFontSize;
             this.timerStyle = timerStyle;
             this.fontColors = fontColors;
+            this.summonerSpellsDisplayStrategy = summonerSpellsDisplayStrategy;
         }
     }
 }

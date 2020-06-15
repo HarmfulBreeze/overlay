@@ -375,8 +375,8 @@ public class WSClient extends WebSocketClient {
             }
 
             // Update timer in webapp
-            SetTimerMessage setTimerMessage = new SetTimerMessage(timer.getInternalNowInEpochMs(), timer.getAdjustedTimeLeftInPhase());
-            this.wsServer.broadcastWebappMessage(SetTimerMessage.class, setTimerMessage);
+            UpdateTimerStateMessage updateTimerStateMessage = new UpdateTimerStateMessage(timerPhase, timer.getInternalNowInEpochMs(), timer.getAdjustedTimeLeftInPhase());
+            this.wsServer.broadcastWebappMessage(UpdateTimerStateMessage.class, updateTimerStateMessage);
         }
 
         // Setup summoner spells

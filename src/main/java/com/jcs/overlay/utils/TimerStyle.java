@@ -21,14 +21,13 @@ public enum TimerStyle {
     public static void checkTimerStyle(Config config) throws ConfigException.ValidationFailed {
         String styleName = config.getString(TIMER_STYLE_CONFIG_PATH);
         TimerStyle style = getTimerStyle(styleName);
-        if (style != null) {
-            return;
+        if (style == null) {
+            throw new ConfigException.ValidationFailed(Collections.singletonList(
+                    new ConfigException.ValidationProblem(
+                            TIMER_STYLE_CONFIG_PATH,
+                            config.origin(),
+                            "Invalid timer style.")));
         }
-        throw new ConfigException.ValidationFailed(Collections.singletonList(
-                new ConfigException.ValidationProblem(
-                        TIMER_STYLE_CONFIG_PATH,
-                        config.origin(),
-                        "Invalid timer style.")));
     }
 
     public static TimerStyle getTimerStyle(String styleName) {
