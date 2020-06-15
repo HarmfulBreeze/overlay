@@ -12,7 +12,7 @@ public enum TimerStyle {
     @Json(name = "inTeamNames") INTEAMNAMES("inTeamNames");
 
     public static final String TIMER_STYLE_CONFIG_PATH = "overlay.webapp.timer.style";
-    private String styleName;
+    private final String styleName;
 
     TimerStyle(String styleName) {
         this.styleName = styleName;
@@ -20,10 +20,9 @@ public enum TimerStyle {
 
     public static void checkTimerStyle(Config config) throws ConfigException.ValidationFailed {
         String styleName = config.getString(TIMER_STYLE_CONFIG_PATH);
-        for (TimerStyle style : TimerStyle.values()) {
-            if (style.styleName.equals(styleName)) {
-                return;
-            }
+        TimerStyle style = getTimerStyle(styleName);
+        if (style != null) {
+            return;
         }
         throw new ConfigException.ValidationFailed(Collections.singletonList(
                 new ConfigException.ValidationProblem(
