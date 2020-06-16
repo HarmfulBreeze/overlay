@@ -8,11 +8,17 @@
 - **Windows**
 - Java (min. Java 8)
 
-## Building
-- Extract ``./libs/lib/win32.zip`` (for 32 bits Java), ``./libs/lib/win64.zip`` (for 64 bits Java) and ``./web/web.zip``. Select "extract here".
+## Getting started
+- Download the latest release [here](https://github.com/piorrro33/overlay/releases/latest). Download the win32 archive for 32 bits Java, or the win64 archive for 64 bits Java.
+- Extract the zip file and execute ``run.bat`` to start Overlay.
+
+## Customization
+Edit the configuration by modifying ``config.conf`` and restarting the application.
+You can also customize fonts and more elements: check out ``./web/img/custom`` and ``./web/fonts``.
+
+## Building and running
+### Building
+- Extract ``./libs/lib/win32.zip`` (for 32 bits Java), ``./libs/lib/win64.zip`` (for 64 bits Java) and ``./web/web.zip``.Select "extract here".
 - Open the ``scripts`` folder and run ``build_win32.bat`` or ``build_win64.bat``.
-
-## Running Overlay
+### Running
 - Execute ``run_win32.bat`` or ``run_win64.bat`` in the ``scripts`` folder.
-
-You can edit the configuration by editing ``config.conf`` and restarting the application.
