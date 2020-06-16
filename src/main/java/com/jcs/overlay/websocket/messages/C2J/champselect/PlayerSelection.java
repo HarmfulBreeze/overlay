@@ -13,7 +13,6 @@ public class PlayerSelection {
     private int team;
     private String assignedPosition;
     private int championPickIntent;
-    private String playerType;
     private Long summonerId;
     private String entitledFeatureType;
 
@@ -57,7 +56,6 @@ public class PlayerSelection {
                     && this.team == ps.team
                     && this.assignedPosition.equals(ps.assignedPosition)
                     && this.championPickIntent == ps.championPickIntent
-                    && this.playerType.equals(ps.playerType)
                     && this.summonerId.equals(ps.summonerId)
                     && this.entitledFeatureType.equals(ps.entitledFeatureType);
         }
@@ -67,6 +65,6 @@ public class PlayerSelection {
     @Override
     public int hashCode() {
         return Objects.hash(this.cellId, this.championId, this.selectedSkinId, this.wardSkinId, this.spell1Id, this.spell2Id,
-                this.team, this.assignedPosition, this.championPickIntent, this.playerType, this.summonerId, this.entitledFeatureType);
+                this.team, this.assignedPosition, this.championPickIntent, this.summonerId, this.entitledFeatureType);
     }
 }

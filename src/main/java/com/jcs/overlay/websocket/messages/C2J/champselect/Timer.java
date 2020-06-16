@@ -4,10 +4,7 @@ import java.util.Objects;
 
 @SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class Timer {
-    private long timeLeftInPhase;
     private long adjustedTimeLeftInPhase;
-    private int timeLeftInPhaseInSec;
-    private int adjustedTimeLeftInPhaseInSec;
     private long totalTimeInPhase;
     private Phase phase;
     private boolean isInfinite;
@@ -15,14 +12,6 @@ public class Timer {
 
     public long getAdjustedTimeLeftInPhase() {
         return this.adjustedTimeLeftInPhase;
-    }
-
-    public int getAdjustedTimeLeftInPhaseInSec() {
-        return this.adjustedTimeLeftInPhaseInSec;
-    }
-
-    public long getTimeLeftInPhase() {
-        return this.timeLeftInPhase;
     }
 
     public long getTotalTimeInPhase() {
@@ -48,10 +37,7 @@ public class Timer {
         }
         if (obj instanceof Timer) {
             Timer aTimer = ((Timer) obj);
-            return this.timeLeftInPhase == aTimer.timeLeftInPhase
-                    && this.adjustedTimeLeftInPhase == aTimer.adjustedTimeLeftInPhase
-                    && this.timeLeftInPhaseInSec == aTimer.timeLeftInPhaseInSec
-                    && this.adjustedTimeLeftInPhaseInSec == aTimer.adjustedTimeLeftInPhaseInSec
+            return this.adjustedTimeLeftInPhase == aTimer.adjustedTimeLeftInPhase
                     && this.totalTimeInPhase == aTimer.totalTimeInPhase
                     && this.phase.equals(aTimer.phase)
                     && this.isInfinite == aTimer.isInfinite
@@ -62,8 +48,7 @@ public class Timer {
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.timeLeftInPhase, this.adjustedTimeLeftInPhase, this.timeLeftInPhaseInSec,
-                this.adjustedTimeLeftInPhaseInSec, this.totalTimeInPhase, this.phase, this.isInfinite,
+        return Objects.hash(this.adjustedTimeLeftInPhase, this.totalTimeInPhase, this.phase, this.isInfinite,
                 this.internalNowInEpochMs);
     }
 

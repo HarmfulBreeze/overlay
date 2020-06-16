@@ -5,21 +5,13 @@ import java.util.List;
 @SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class Session {
     List<List<Action>> actions;
-    boolean allowBattleBoost;
-    boolean allowDuplicatePicks;
-    boolean allowLockedEvents;
-    boolean allowRerolling;
-    boolean allowSkinSelection;
     BannedChampions bans;
     List<Integer> benchChampionIds;
     boolean benchEnabled;
-    int boostableSkinCount;
-    ChatRoomDetails chatDetails;
-    long counter;
-    EntitledFeatureState entitledFeatureState;
+    long counter; // unk
     boolean isSpectating;
     long localPlayerCellId;
-    int lockedEventIndex;
+    int lockedEventIndex; // unk
     List<PlayerSelection> myTeam;
     long rerollsRemaining; // uint32
     List<PlayerSelection> theirTeam;
