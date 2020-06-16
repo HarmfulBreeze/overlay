@@ -1,4 +1,4 @@
-package com.jcs.overlay.utils;
+package com.jcs.overlay.websocket.messages.J2W.enums;
 
 import com.squareup.moshi.Json;
 import com.typesafe.config.Config;

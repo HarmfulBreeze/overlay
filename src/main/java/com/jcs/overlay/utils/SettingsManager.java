@@ -1,6 +1,7 @@
 package com.jcs.overlay.utils;
 
 import com.jcs.overlay.websocket.messages.J2W.enums.SummonerSpellsDisplayStrategy;
+import com.jcs.overlay.websocket.messages.J2W.enums.TimerStyle;
 import com.typesafe.config.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,8 +1,8 @@
 package com.jcs.overlay.websocket.messages.J2W;
 
 import com.jcs.overlay.utils.SettingsManager;
-import com.jcs.overlay.utils.TimerStyle;
 import com.jcs.overlay.websocket.messages.J2W.enums.SummonerSpellsDisplayStrategy;
+import com.jcs.overlay.websocket.messages.J2W.enums.TimerStyle;
 import com.typesafe.config.Config;
 
 import java.util.HashMap;
