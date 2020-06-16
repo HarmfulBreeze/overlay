@@ -1,4 +1,4 @@
-package com.jcs.overlay.websocket;
+package com.jcs.overlay.websocket.holders;
 
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
 

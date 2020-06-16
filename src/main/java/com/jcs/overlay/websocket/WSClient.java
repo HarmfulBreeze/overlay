@@ -4,6 +4,8 @@ import com.jcs.overlay.App;
 import com.jcs.overlay.utils.SettingsManager;
 import com.jcs.overlay.utils.Uint64Adapter;
 import com.jcs.overlay.utils.Utils;
+import com.jcs.overlay.websocket.holders.Bans;
+import com.jcs.overlay.websocket.holders.Player;
 import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
 import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
