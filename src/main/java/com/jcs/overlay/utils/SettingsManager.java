@@ -6,25 +6,30 @@ import com.typesafe.config.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.swing.*;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public final class SettingsManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(SettingsManager.class);
-    private Path configPath = Paths.get(System.getProperty("user.dir") + "/config.conf");
+    private final Path configPath = Paths.get(System.getProperty("user.dir") + "/config.conf");
     private Config config;
 
     private SettingsManager() {
-        Config effectiveConfig;
+        Config effectiveConfig = null;
 
         // recreate non-existent config
         if (!Files.exists(this.configPath)) {
             LOGGER.warn("Config file could not be found, recreating one.");
             try {
                 ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                Files.copy(classLoader.getResourceAsStream("application.conf"), this.configPath);
+                InputStream applicationConfStream = classLoader.getResourceAsStream("application.conf");
+                // application.conf should always exist!
+                assert applicationConfStream != null;
+                Files.copy(applicationConfStream, this.configPath);
             } catch (Exception e) {
                 LOGGER.error(e.getMessage(), e);
             }
@@ -38,15 +43,20 @@ public final class SettingsManager {
             SummonerSpellsDisplayStrategy.checkStrategy(fileConfig);
             effectiveConfig = ConfigFactory.load(fileConfig);
         } catch (ConfigException.ValidationFailed | ConfigException.Parse e) {
-            LOGGER.error("Config file is invalid, using default configuration. If you wish to recreate the file," +
-                    " simply delete it and it will be recreated on next startup.");
-            effectiveConfig = ConfigFactory.load();
-            this.configPath = null;
+            String errorMessage = "Config file is invalid. " +
+                    "If you wish to reset the file, simply delete it and it will be recreated on next startup. " +
+                    "Overlay will now close.\n" +
+                    "Exception message:\n" +
+                    e.getMessage();
+            LOGGER.error(errorMessage, e);
+            JOptionPane.showMessageDialog(null, errorMessage, "Error!", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
         } catch (ConfigException e) {
             LOGGER.error(e.getMessage(), e);
-            effectiveConfig = ConfigFactory.load();
-            this.configPath = null;
+            System.exit(1);
         }
+        // at this point, effectiveConfig should no longer be null
+        assert effectiveConfig != null;
         this.config = effectiveConfig.getConfig("overlay");
     }
 
