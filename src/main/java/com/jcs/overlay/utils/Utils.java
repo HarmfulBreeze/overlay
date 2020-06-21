@@ -7,6 +7,7 @@ import com.sun.jna.platform.win32.Kernel32;
 import com.sun.jna.platform.win32.Tlhelp32;
 import com.sun.jna.platform.win32.WinDef;
 import com.sun.jna.platform.win32.WinNT;
+import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.win32.StdCallLibrary;
 import com.typesafe.config.ConfigValueFactory;
 import okhttp3.OkHttpClient;
@@ -70,22 +71,20 @@ public class Utils {
         Kernel32 k32 = Kernel32.INSTANCE;
         WinNT.HANDLE snapshot = k32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, new WinDef.DWORD(0));
         Tlhelp32.PROCESSENTRY32.ByReference processEntry = new Tlhelp32.PROCESSENTRY32.ByReference();
-        byte[] buf = new byte[1024];
+        char[] charbuf = new char[1024];
         while (k32.Process32Next(snapshot, processEntry)) {
             if (Native.toString(processEntry.szExeFile).equals("LeagueClient.exe")) {
                 WinNT.HANDLE handle = k32.OpenProcess(
-                        WinNT.PROCESS_QUERY_INFORMATION + WinNT.PROCESS_VM_READ,
+                        WinNT.PROCESS_QUERY_LIMITED_INFORMATION,
                         false,
                         processEntry.th32ProcessID.intValue());
-                int result = psapi.INSTANCE.GetModuleFileNameExA(
-                        handle,
-                        Pointer.NULL,
-                        buf,
-                        1024);
+                IntByReference charbufSize = new IntByReference(1024);
+                boolean result = k32.QueryFullProcessImageName(handle, 0, charbuf, charbufSize);
                 k32.CloseHandle(handle);
-                if (result > 0) { // Path was retrieved successfully
+                if (result) { // Path was retrieved successfully
                     k32.CloseHandle(snapshot);
-                    String pathToClient = Native.toString(buf).substring(0, result);
+                    String pathToClient = String.valueOf(charbuf);
+                    pathToClient = pathToClient.substring(0, charbufSize.getValue()); // remove the trailing NUL chars
                     return Paths.get(pathToClient).getParent();
                 }
             }
