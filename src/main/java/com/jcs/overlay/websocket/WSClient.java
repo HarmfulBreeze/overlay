@@ -49,6 +49,7 @@ import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.We
 
 public class WSClient extends WebSocketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
+    private final SettingsManager settingsManager = SettingsManager.getManager();
     private final WSServer wsServer = WSServer.getInstance();
     private final Moshi moshi = new Moshi.Builder()
             .add(new Uint64Adapter())
@@ -164,29 +165,33 @@ public class WSClient extends WebSocketClient {
             return;
         }
 
-        JsonAdapter<SessionMessage> jsonAdapter = this.moshi.adapter(SessionMessage.class);
+        if (!this.settingsManager.getConfig().getBoolean("debug.printAllClientMessages")) {
+            JsonAdapter<SessionMessage> jsonAdapter = this.moshi.adapter(SessionMessage.class);
 
-        SessionMessage jsonMessage;
-        try {
-            jsonMessage = jsonAdapter.fromJson(json);
-            if (jsonMessage == null) {
-                throw new JsonDataException("jsonMessage is null!");
+            SessionMessage jsonMessage;
+            try {
+                jsonMessage = jsonAdapter.fromJson(json);
+                if (jsonMessage == null) {
+                    throw new JsonDataException("jsonMessage is null!");
+                }
+            } catch (IOException e) {
+                LOGGER.error(e.getMessage(), e);
+                return;
             }
-        } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
-            return;
-        }
 
-        switch (jsonMessage.getEventType()) {
-            case CREATE:
-                this.handleChampSelectCreate();
-                break;
-            case UPDATE:
-                this.preHandleChampSelectUpdate(jsonMessage);
-                break;
-            case DELETE:
-                this.handleChampSelectDelete();
-                break;
+            switch (jsonMessage.getEventType()) {
+                case CREATE:
+                    this.handleChampSelectCreate();
+                    break;
+                case UPDATE:
+                    this.preHandleChampSelectUpdate(jsonMessage);
+                    break;
+                case DELETE:
+                    this.handleChampSelectDelete();
+                    break;
+            }
+        } else {
+            System.out.println(json); // print JSON to console for debug purposes
         }
     }
 
@@ -217,7 +222,7 @@ public class WSClient extends WebSocketClient {
         this.receivedSummonerNamesUpdate = false;
         this.bans = new Bans();
 
-        Config config = SettingsManager.getManager().getConfig();
+        Config config = this.settingsManager.getConfig();
         String team100Name = config.getString("teams.blue.name");
         String team200Name = config.getString("teams.red.name");
         List<Integer> team100Color = config.getIntList("teams.blue.rgbColor");
