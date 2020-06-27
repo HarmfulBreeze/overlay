@@ -73,18 +73,14 @@ public final class SettingsManager {
     }
 
     public void writeConfig() {
-        if (this.configPath == null) {
-            LOGGER.warn("Did not write configuration as the default config is loaded.");
-        } else {
-            try {
-                Files.write(this.configPath, this.config.atPath("overlay")
-                        .root()
-                        .render(ConfigRenderOptions.defaults().setOriginComments(false).setComments(true))
-                        .getBytes()
-                );
-            } catch (IOException e) {
-                LOGGER.error(e.getMessage(), e);
-            }
+        try {
+            Files.write(this.configPath, this.config.atPath("overlay")
+                    .root()
+                    .render(ConfigRenderOptions.defaults().setOriginComments(false).setComments(true))
+                    .getBytes()
+            );
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
         }
     }
 
