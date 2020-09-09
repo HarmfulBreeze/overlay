@@ -222,6 +222,25 @@ public class Utils {
             }
         }
 
+        // Download every champion tile and write them to PNG files
+        for (Champion champion : allChampions) {
+            String championKey = champion.getKey();
+            url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/" + championKey + "/tile";
+            request = new Request.Builder().url(url).build();
+            LOGGER.info("Making GET request to " + url);
+            try (Response response = client.newCall(request).execute()) {
+                if (response.code() == 200 && response.body() != null) {
+                    InputStream is = response.body().byteStream();
+                    Path path = Paths.get(imgFolderPath + "tile/" + championKey + ".png");
+                    Files.createDirectories(path.getParent());
+                    BufferedImage img = ImageIO.read(is);
+                    ImageIO.write(img, "png", Files.newOutputStream(path));
+                }
+            } catch (IOException e) {
+                LOGGER.error(e.getMessage(), e);
+            }
+        }
+
         // Shutdown our OkHttp client
         client.dispatcher().executorService().shutdown();
         client.connectionPool().evictAll();
