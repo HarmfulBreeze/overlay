@@ -1,5 +1,10 @@
 package com.jcs.overlay.utils;
 
+import com.jcs.overlay.App;
+import com.jcs.overlay.cef.CefManager;
+import com.jcs.overlay.websocket.WSClient;
+import com.jcs.overlay.websocket.WSServer;
+import com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage;
 import com.jcs.overlay.websocket.messages.J2W.enums.SummonerSpellsDisplayStrategy;
 import com.jcs.overlay.websocket.messages.J2W.enums.TimerStyle;
 import com.typesafe.config.*;
@@ -15,21 +20,19 @@ import java.nio.file.Paths;
 
 public final class SettingsManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(SettingsManager.class);
-    private final Path configPath = Paths.get(System.getProperty("user.dir") + "/config.conf");
+    private static final Path CONFIG_PATH = Paths.get(System.getProperty("user.dir") + "/config.conf");
     private Config config;
 
     private SettingsManager() {
-        Config effectiveConfig = null;
-
         // recreate non-existent config
-        if (!Files.exists(this.configPath)) {
+        if (!Files.exists(CONFIG_PATH)) {
             LOGGER.warn("Config file could not be found, recreating one.");
             try {
                 ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
                 InputStream applicationConfStream = classLoader.getResourceAsStream("application.conf");
                 // application.conf should always exist!
                 assert applicationConfStream != null;
-                Files.copy(applicationConfStream, this.configPath);
+                Files.copy(applicationConfStream, CONFIG_PATH);
             } catch (Exception e) {
                 LOGGER.error(e.getMessage(), e);
             }
@@ -37,11 +40,9 @@ public final class SettingsManager {
 
         try {
             // parse config file and check its validity
-            Config fileConfig = ConfigFactory.parseFile(this.configPath.toFile());
-            fileConfig.checkValid(ConfigFactory.defaultApplication(), "overlay");
-            TimerStyle.checkTimerStyle(fileConfig);
-            SummonerSpellsDisplayStrategy.checkStrategy(fileConfig);
-            effectiveConfig = ConfigFactory.load(fileConfig);
+            Config fileConfig = ConfigFactory.parseFile(CONFIG_PATH.toFile());
+            verifyConfig(fileConfig);
+            this.config = ConfigFactory.load(fileConfig).getConfig("overlay");
         } catch (ConfigException.ValidationFailed | ConfigException.Parse e) {
             String errorMessage = "Config file is invalid. " +
                     "If you wish to reset the file, simply delete it and it will be recreated on next startup. " +
@@ -55,9 +56,12 @@ public final class SettingsManager {
             LOGGER.error(e.getMessage(), e);
             System.exit(1);
         }
-        // at this point, effectiveConfig should no longer be null
-        assert effectiveConfig != null;
-        this.config = effectiveConfig.getConfig("overlay");
+    }
+
+    private static void verifyConfig(Config fileConfig) throws ConfigException.ValidationFailed {
+        fileConfig.checkValid(ConfigFactory.defaultApplication(), "overlay");
+        TimerStyle.checkTimerStyle(fileConfig);
+        SummonerSpellsDisplayStrategy.checkStrategy(fileConfig);
     }
 
     public static SettingsManager getManager() {
@@ -68,19 +72,59 @@ public final class SettingsManager {
         return this.config;
     }
 
-    public void updateValue(String path, ConfigValue value) {
+    public synchronized void updateValue(String path, ConfigValue value) {
         this.config = this.config.withValue(path, value);
+        this.writeConfig();
     }
 
-    public void writeConfig() {
+    private void writeConfig() {
         try {
-            Files.write(this.configPath, this.config.atPath("overlay")
+            Files.write(CONFIG_PATH, this.config.atPath("overlay")
                     .root()
                     .render(ConfigRenderOptions.defaults().setOriginComments(false).setComments(true))
                     .getBytes()
             );
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
+        }
+    }
+
+    protected synchronized void refreshConfig() {
+        // Load updated config
+        Config prevConf = this.config;
+        try {
+            Config fileConfig = ConfigFactory.parseFile(CONFIG_PATH.toFile());
+            verifyConfig(fileConfig);
+            this.config = ConfigFactory.load(fileConfig).getConfig("overlay");
+        } catch (ConfigException.ValidationFailed | ConfigException.Parse e) {
+            String errorMessage = "Config file is invalid. Overlay configuration has not been modified.";
+            LOGGER.warn(errorMessage);
+            JOptionPane.showMessageDialog(null, errorMessage, "Warning!",
+                    JOptionPane.WARNING_MESSAGE);
+        }
+
+        // Update config where needed
+        LOGGER.info("Updating configuration...");
+        // Window size
+        if (!App.isNoGUI()) {
+            int windowWidth = this.config.getInt("window.width");
+            int windowHeight = this.config.getInt("window.height");
+            CefManager.getInstance().getMainFrame().resizeWindow(windowWidth, windowHeight);
+        }
+        // Webapp config
+        WSClient wsClient = App.getApp().getWsClient();
+        if (wsClient != null && wsClient.championSelectHasStarted()) {
+            SetupWebappMessage msg = new SetupWebappMessage();
+            WSServer.getInstance().broadcastWebappMessage(SetupWebappMessage.class, msg);
+        }
+
+        // Check non-updatable settings
+        if (this.config.getBoolean("debug.nogui") != prevConf.getBoolean("debug.nogui")
+                || this.config.getBoolean("cef.disableGpuCompositing") != prevConf.getBoolean("cef.disableGpuCompositing")
+                || !this.config.getString("debug.latestPatch").equals(prevConf.getString("debug.latestPatch"))) {
+            LOGGER.info("Configuration updated. Some settings need Overlay to be restarted in order to take effect.");
+        } else {
+            LOGGER.info("Configuration updated.");
         }
     }
 

@@ -6,7 +6,8 @@ public class CefManager {
 
     private MainFrame mainFrame;
 
-    public CefManager() {
+    // Private constructor
+    private CefManager() {
         if (!CefApp.startup()) {
             System.out.println("Startup initialization failed!");
             return;
@@ -14,6 +15,16 @@ public class CefManager {
         String url = "file:///" + System.getProperty("user.dir") + "/web/index.html";
         url = url.replace('\\', '/');
         this.mainFrame = new MainFrame(url, false, false);
+    }
+
+    // Instance getter
+    public static CefManager getInstance() {
+        return Holder.INSTANCE;
+    }
+
+    // Singleton holder
+    private static class Holder {
+        private static final CefManager INSTANCE = new CefManager();
     }
 
     public MainFrame getMainFrame() {

@@ -11,7 +11,7 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
 public class SettingsWatcher implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(SettingsWatcher.class);
-    private final Path configPath = Paths.get(System.getProperty("user.dir") + "/config.conf");
+    private static final Path CONFIG_PATH = Paths.get(System.getProperty("user.dir") + "/config.conf");
     private boolean shouldStop = false;
     private WatchService watchService;
 
@@ -33,7 +33,7 @@ public class SettingsWatcher implements Runnable {
     public void run() {
         try {
             this.watchService = FileSystems.getDefault().newWatchService();
-            this.configPath.getParent().register(this.watchService, ENTRY_MODIFY, ENTRY_DELETE);
+            CONFIG_PATH.getParent().register(this.watchService, ENTRY_MODIFY, ENTRY_DELETE);
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
             return;
@@ -42,10 +42,18 @@ public class SettingsWatcher implements Runnable {
         try {
             while (!this.shouldStop) {
                 WatchKey key = this.watchService.take();
+
+                //noinspection BusyWait
+                Thread.sleep(50); // hack to avoid multiple triggers
+
                 for (WatchEvent<?> event : key.pollEvents()) {
-                    if (((Path) event.context()).endsWith("config.conf")) {
-                        LOGGER.warn("Config file has been altered. Restart the app to apply changes.");
-                        this.shouldStop = true;
+                    if (event.context().toString().equals("config.conf")) {
+                        if (event.kind() == ENTRY_MODIFY) {
+                            LOGGER.warn("Config file has been modified!");
+                            SettingsManager.getManager().refreshConfig();
+                        } else {
+                            LOGGER.warn("Config file was deleted. Overlay configuration remains unchanged.");
+                        }
                     }
                 }
                 key.reset();

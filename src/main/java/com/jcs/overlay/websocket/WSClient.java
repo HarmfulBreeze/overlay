@@ -10,7 +10,7 @@ import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
 import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
 import com.jcs.overlay.websocket.messages.J2W.*;
-import com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.TeamNames;
+import com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.TeamNames;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
 import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpell;
@@ -44,8 +44,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.jcs.overlay.websocket.messages.C2J.champselect.Action.ActionType.*;
-import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.TeamColors;
-import static com.jcs.overlay.websocket.messages.J2W.ChampSelectCreateMessage.WebappConfig;
+import static com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.TeamColors;
+import static com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.WebappConfig;
 
 public class WSClient extends WebSocketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
@@ -59,13 +59,13 @@ public class WSClient extends WebSocketClient {
     private final List<Player> playerList = new ArrayList<>();
     private final Queue<Session> updateMessagesQueue = new ConcurrentLinkedQueue<>();
     private Session previousSession = null;
+    private boolean championSelectStarted;
     private boolean receivedSummonerNamesUpdate;
     private boolean myTeamIsBlueTeam;
     private int previousActiveActionGroup = -1;
     private String summonerNamesCallId = null;
     private String chatCallId = null;
     private Bans bans;
-
     public WSClient(URI uri, Map<String, String> httpHeaders) {
         // Setup WebSocketClient
         super(uri, httpHeaders);
@@ -98,18 +98,6 @@ public class WSClient extends WebSocketClient {
         return matcher.group(1);
     }
 
-    @Override
-    public void onClose(int code, String reason, boolean remote) {
-        if (code != CloseFrame.NEVER_CONNECTED && code != CloseFrame.NORMAL) {
-            if (code == CloseFrame.ABNORMAL_CLOSE) { // Code sent by the League Client when closing
-                LOGGER.info("Disconnected from client.");
-            } else {
-                LOGGER.error(String.format("Connection closed, code %d\nReason: %s\nInitiated by remote: %b\n", code, reason, remote));
-            }
-            this.handleChampSelectDelete();
-        }
-    }
-
     /**
      * Extracts the chat session state {@link String} from the JSON data through RegEx matching.
      *
@@ -125,6 +113,42 @@ public class WSClient extends WebSocketClient {
         }
 
         return matcher.group(1);
+    }
+
+    /**
+     * Sets the adjustedCellId of every player in the supplied {@code playerList}.
+     *
+     * @param playerList A {@code List} of {@link Player} containing every player in the draft.
+     */
+    private static void adjustCellIds(List<Player> playerList) {
+        int blueCounter = 0;
+        int redCounter = 5;
+        for (Player player : playerList) {
+            int teamId = player.getPlayerSelection().getTeam();
+            if (teamId == 2) {
+                player.setAdjustedCellId(redCounter);
+                redCounter++;
+            } else {
+                player.setAdjustedCellId(blueCounter);
+                blueCounter++;
+            }
+        }
+    }
+
+    public boolean championSelectHasStarted() {
+        return this.championSelectStarted;
+    }
+
+    @Override
+    public void onClose(int code, String reason, boolean remote) {
+        if (code != CloseFrame.NEVER_CONNECTED && code != CloseFrame.NORMAL) {
+            if (code == CloseFrame.ABNORMAL_CLOSE) { // Code sent by the League Client when closing
+                LOGGER.info("Disconnected from client.");
+            } else {
+                LOGGER.error(String.format("Connection closed, code %d\nReason: %s\nInitiated by remote: %b\n", code, reason, remote));
+            }
+            this.handleChampSelectDelete();
+        }
     }
 
     @Override
@@ -216,6 +240,7 @@ public class WSClient extends WebSocketClient {
     private void handleChampSelectCreate() {
         LOGGER.info("Champion select has started!");
         this.previousSession = null;
+        this.championSelectStarted = true;
         this.previousActiveActionGroup = -1;
         this.playerList.clear();
         this.updateMessagesQueue.clear();
@@ -230,8 +255,8 @@ public class WSClient extends WebSocketClient {
         TeamNames teamNames = new TeamNames(team100Name, team200Name);
         TeamColors teamColors = new TeamColors(team100Color, team200Color);
         WebappConfig webappConfig = new WebappConfig();
-        ChampSelectCreateMessage createMessage = new ChampSelectCreateMessage(teamNames, teamColors, webappConfig);
-        this.wsServer.broadcastWebappMessage(ChampSelectCreateMessage.class, createMessage);
+        SetupWebappMessage setupMessage = new SetupWebappMessage(teamNames, teamColors, webappConfig);
+        this.wsServer.broadcastWebappMessage(SetupWebappMessage.class, setupMessage);
 
         List<String> championKeys = new ArrayList<>();
         Champions.get().forEach(champ -> championKeys.add(champ.getKey()));
@@ -453,12 +478,13 @@ public class WSClient extends WebSocketClient {
     private void handleChampSelectDelete() {
         if (this.previousSession != null) {
             this.summonerNamesCallId = null;
+            this.championSelectStarted = false;
             this.previousSession = null;
             // Send the request to the web component asking to close champion select.
             LOGGER.info("Champion select has ended.");
 
-            ChampSelectDeleteMessage deleteMessage = new ChampSelectDeleteMessage();
-            this.wsServer.broadcastWebappMessage(ChampSelectDeleteMessage.class, deleteMessage);
+            ResetWebappMessage msg = new ResetWebappMessage();
+            this.wsServer.broadcastWebappMessage(ResetWebappMessage.class, msg);
         }
     }
 
@@ -746,26 +772,6 @@ public class WSClient extends WebSocketClient {
 
         this.send(query);
         LOGGER.debug("Sent update name request: " + query);
-    }
-
-    /**
-     * Sets the adjustedCellId of every player in the supplied {@code playerList}.
-     *
-     * @param playerList A {@code List} of {@link Player} containing every player in the draft.
-     */
-    private static void adjustCellIds(List<Player> playerList) {
-        int blueCounter = 0;
-        int redCounter = 5;
-        for (Player player : playerList) {
-            int teamId = player.getPlayerSelection().getTeam();
-            if (teamId == 2) {
-                player.setAdjustedCellId(redCounter);
-                redCounter++;
-            } else {
-                player.setAdjustedCellId(blueCounter);
-                blueCounter++;
-            }
-        }
     }
 
     /**

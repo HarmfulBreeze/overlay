@@ -105,4 +105,9 @@ public class MainFrame extends JFrame {
             }
         });
     }
+
+    public void resizeWindow(int windowWidth, int windowHeight) {
+        this.getContentPane().setPreferredSize(new Dimension(windowWidth, windowHeight));
+        this.pack();
+    }
 }

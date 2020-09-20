@@ -250,7 +250,6 @@ public class Utils {
         String latestVersion = Versions.get().get(0);
         SettingsManager.getManager().updateValue("debug.latestPatch",
                 ConfigValueFactory.fromAnyRef(latestVersion));
-        SettingsManager.getManager().writeConfig();
     }
 
     private interface psapi extends StdCallLibrary {

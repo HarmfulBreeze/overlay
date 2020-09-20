@@ -12,7 +12,6 @@ import com.merakianalytics.orianna.Orianna;
 import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpells;
 import org.cef.CefApp;
-import org.java_websocket.client.WebSocketClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,14 +27,13 @@ import static org.cef.CefApp.CefAppState.TERMINATED;
 public class App {
     private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
     private static App APP;
-    private static boolean guiEnabled;
+    private static boolean noGUI;
     private static boolean isClosed = false;
     private final Thread lockfileMonitorThread;
     private final Thread settingsWatcherThread;
-    private WebSocketClient wsClient;
+    private WSClient wsClient;
     private WSAutoReconnect autoReconnect;
     private Thread autoReconnectThread;
-    private CefManager cefManager;
 
     private App() {
         // Orianna
@@ -59,9 +57,13 @@ public class App {
         this.settingsWatcherThread.setName("Settings Watcher");
     }
 
+    public static boolean isNoGUI() {
+        return noGUI;
+    }
+
     public static void main(String[] args) {
-        guiEnabled = (args.length <= 0 || !args[0].equals("-nogui"))
-                && !SettingsManager.getManager().getConfig().getBoolean("debug.nogui");
+        noGUI = (args.length > 0 && args[0].equals("-nogui"))
+                || SettingsManager.getManager().getConfig().getBoolean("debug.nogui");
         APP = new App();
         APP.start();
     }
@@ -74,7 +76,10 @@ public class App {
         this.lockfileMonitorThread.start();
         WSServer.getInstance().start();
         this.settingsWatcherThread.start();
-        this.cefManager = guiEnabled ? new CefManager() : null;
+        if (!noGUI) {
+            //noinspection ResultOfMethodCallIgnored
+            CefManager.getInstance(); // Initialize CEF singleton
+        }
     }
 
     synchronized public void stop(boolean force) {
@@ -91,7 +96,7 @@ public class App {
         }
         // Dispose of the mainframe only if it has existed
         if (cefAppState != NONE) {
-            this.cefManager.getMainFrame().dispose();
+            CefManager.getInstance().getMainFrame().dispose();
         }
 
         SettingsWatcher.getInstance().stop();
@@ -150,7 +155,7 @@ public class App {
         }
     }
 
-    public WebSocketClient getWsClient() {
+    public WSClient getWsClient() {
         return this.wsClient;
     }
 
