@@ -12,6 +12,7 @@ import com.merakianalytics.orianna.Orianna;
 import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpells;
 import org.cef.CefApp;
+import org.jetbrains.annotations.Contract;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,10 +43,14 @@ public class App {
         // Pre-caching
         Champions.get().load();
         SummonerSpells.get().load();
-        if (Utils.checkForNewPatch()) {
-            LOGGER.info("New patch detected! Updating webapp images.");
-            Utils.updateWebappImages();
-            Utils.updateLatestPatchFile();
+        if (Utils.checkForNewDDragonPatch()) {
+            LOGGER.info("New patch detected! Updating DDragon data...");
+            Utils.performDDragonUpdate();
+        }
+
+        if (Utils.checkForNewCDragonPatch()) {
+            LOGGER.info("CDragon data is outdated. Updating...");
+            Utils.performCDragonUpdate();
         }
 
         // Create lockfile monitor thread
@@ -82,6 +87,7 @@ public class App {
         }
     }
 
+    @Contract("_ -> fail") // Indicates that it WILL stop the application
     synchronized public void stop(boolean force) {
         if (isClosed) {
             return;

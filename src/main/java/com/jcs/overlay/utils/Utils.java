@@ -2,17 +2,16 @@ package com.jcs.overlay.utils;
 
 import com.merakianalytics.orianna.types.core.staticdata.*;
 import com.sun.jna.Native;
-import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.Kernel32;
 import com.sun.jna.platform.win32.Tlhelp32;
 import com.sun.jna.platform.win32.WinDef;
 import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.ptr.IntByReference;
-import com.sun.jna.win32.StdCallLibrary;
 import com.typesafe.config.ConfigValueFactory;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -25,6 +24,7 @@ import javax.net.ssl.X509TrustManager;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -41,6 +41,7 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 public class Utils {
     private static final Object LOCK = new Object();
     private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class);
+    private static final String IMG_FOLDER_PATH = System.getProperty("user.dir") + "/web/img/";
 
     private Utils() {
         throw new UnsupportedOperationException("Utility class");
@@ -149,26 +150,40 @@ public class Utils {
     }
 
     /**
-     * Checks if a more recent patch was released since the last startup.
+     * Checks if a new CDragon Raw version was released since the last startup.
      *
      * @return {@code true} if a new patch was released, else {@code false}.
      */
-    public static boolean checkForNewPatch() {
-        String currentVersion = SettingsManager.getManager().getConfig().getString("debug.latestPatch");
+    public static boolean checkForNewCDragonPatch() { // TODO: move check logic in this function
+        String currentVersion = SettingsManager.getManager().getConfig().getString("debug.cdragonPatch");
         String latestVersion = Versions.get().get(0);
         return !currentVersion.equals(latestVersion);
     }
 
-    public static void updateWebappImages() {
-        String imgFolderPath = System.getProperty("user.dir") + "/web/img/";
+    /**
+     * Checks if a new DDragon version was released since the last startup.
+     *
+     * @return {@code true} if a new version was released, else {@code false}.
+     */
+    public static boolean checkForNewDDragonPatch() {
+        String currentVersion = SettingsManager.getManager().getConfig().getString("debug.ddragonPatch");
+        String latestVersion = Versions.get().get(0);
+        return !currentVersion.equals(latestVersion);
+    }
+
+
+    public static void performDDragonUpdate() {
+        OkHttpClient client = new OkHttpClient();
 
         // Download all summoner spells images and write them to PNG files
         SummonerSpells spells = SummonerSpells.get();
         for (SummonerSpell spell : spells) {
-            Path path = Paths.get(imgFolderPath + "icon/spell/" + spell.getId() + ".png");
             try {
+                Path path = Paths.get(IMG_FOLDER_PATH + "icon/spell/" + spell.getId() + ".png");
                 Files.createDirectories(path.getParent());
-                ImageIO.write(spell.getImage().get(), "png", Files.newOutputStream(path));
+                try (OutputStream os = Files.newOutputStream(path)) {
+                    ImageIO.write(spell.getImage().get(), "png", os);
+                }
             } catch (IOException e) {
                 LOGGER.error(e.getMessage(), e);
             }
@@ -177,64 +192,11 @@ public class Utils {
         // Download all champion icons and write them to PNG files
         Champions allChampions = Champions.get();
         for (Champion champion : allChampions) {
-            Path path = Paths.get(imgFolderPath + "icon/champion/icon_" + champion.getKey() + ".png");
             try {
+                Path path = Paths.get(IMG_FOLDER_PATH + "icon/champion/icon_" + champion.getKey() + ".png");
                 Files.createDirectories(path.getParent());
-                ImageIO.write(champion.getImage().get(), "png", Files.newOutputStream(path));
-            } catch (IOException e) {
-                LOGGER.error(e.getMessage(), e);
-            }
-        }
-
-        // Download the generic champion icon directly from the CDN and write it to a PNG file
-        OkHttpClient client = new OkHttpClient();
-        String latestVersion = Versions.get().get(0);
-        String url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/generic/square";
-        Request request = new Request.Builder().url(url).build();
-        LOGGER.info("Making GET request to " + url);
-        try (Response response = client.newCall(request).execute()) {
-            if (response.code() == 200 && response.body() != null) {
-                InputStream is = response.body().byteStream();
-                Path path = Paths.get(imgFolderPath, "icon/champion/icon_None.png");
-                BufferedImage img = ImageIO.read(is);
-                ImageIO.write(img, "png", Files.newOutputStream(path));
-            }
-        } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
-        }
-
-        // Download every champion's centered splash art and write them to PNG files
-        for (Champion champion : allChampions) {
-            String championKey = champion.getKey();
-            url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/" + championKey + "/splash-art/centered";
-            request = new Request.Builder().url(url).build();
-            LOGGER.info("Making GET request to " + url);
-            try (Response response = client.newCall(request).execute()) {
-                if (response.code() == 200 && response.body() != null) {
-                    InputStream is = response.body().byteStream();
-                    Path path = Paths.get(imgFolderPath + "splash/" + championKey + ".png");
-                    Files.createDirectories(path.getParent());
-                    BufferedImage img = ImageIO.read(is);
-                    ImageIO.write(img, "png", Files.newOutputStream(path));
-                }
-            } catch (IOException e) {
-                LOGGER.error(e.getMessage(), e);
-            }
-        }
-
-        // Download every champion tile and write them to PNG files
-        for (Champion champion : allChampions) {
-            String championKey = champion.getKey();
-            url = "https://cdn.communitydragon.org/" + latestVersion + "/champion/" + championKey + "/tile";
-            request = new Request.Builder().url(url).build();
-            LOGGER.info("Making GET request to " + url);
-            try (Response response = client.newCall(request).execute()) {
-                if (response.code() == 200 && response.body() != null) {
-                    InputStream is = response.body().byteStream();
-                    Path path = Paths.get(imgFolderPath + "tile/" + championKey + ".png");
-                    Files.createDirectories(path.getParent());
-                    BufferedImage img = ImageIO.read(is);
-                    ImageIO.write(img, "png", Files.newOutputStream(path));
+                try (OutputStream os = Files.newOutputStream(path)) {
+                    ImageIO.write(champion.getImage().get(), "png", os);
                 }
             } catch (IOException e) {
                 LOGGER.error(e.getMessage(), e);
@@ -244,11 +206,145 @@ public class Utils {
         // Shutdown our OkHttp client
         client.dispatcher().executorService().shutdown();
         client.connectionPool().evictAll();
-    }
 
-    public static void updateLatestPatchFile() {
+
+        // Update latest patch in config
         String latestVersion = Versions.get().get(0);
         SettingsManager.getManager().updateValue("debug.latestPatch",
                 ConfigValueFactory.fromAnyRef(latestVersion));
+    }
+
+    public static void performCDragonUpdate() {
+        OkHttpClient client = new OkHttpClient();
+
+        Champions allChampions = Champions.get();
+        String[] latestCDragonVersion;
+        try {
+            latestCDragonVersion = getLatestCDragonVersion(client);
+        } catch (IOException e) {
+            LOGGER.error("Could not retrieve latest CDragon version. Skipping CDragon update.");
+            return;
+        }
+
+        if (latestCDragonVersion[1].equals(SettingsManager.getManager().getConfig().getString("debug.cdragonPatch"))) {
+            LOGGER.warn("CDragon still has outdated data, skipping CDragon update.");
+            return;
+        }
+
+        // Download the generic champion icon and write it to a PNG file
+        String url = "https://raw.communitydragon.org/" + latestCDragonVersion[0] +
+                "/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/-1.png";
+        Request request = new Request.Builder().url(url).build();
+        LOGGER.info("Making GET request to " + url);
+        try (Response response = client.newCall(request).execute();
+             ResponseBody body = response.body()) {
+            assert body != null; // Body is non-null as it comes from Call#execute
+            if (response.code() == 200) {
+                Path path = Paths.get(IMG_FOLDER_PATH, "icon/champion/icon_None.png");
+                Files.createDirectories(path.getParent());
+                try (InputStream is = body.byteStream();
+                     OutputStream os = Files.newOutputStream(path)) {
+                    BufferedImage img = ImageIO.read(is);
+                    ImageIO.write(img, "png", os);
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+        }
+
+        // Download every champion's centered splash art and write them to PNG files
+        for (Champion champion : allChampions) {
+            url = "https://raw.communitydragon.org/" + latestCDragonVersion[0] +
+                    "/plugins/rcp-be-lol-game-data/global/default/v1/champion-splashes/" +
+                    champion.getId() + "/" + champion.getId() + "000.jpg";
+            request = new Request.Builder().url(url).build();
+            LOGGER.info("Making GET request to " + url);
+            try (Response response = client.newCall(request).execute();
+                 ResponseBody body = response.body()) {
+                assert body != null; // Body is non-null as it comes from Call#execute
+                if (response.code() == 200) {
+                    Path path = Paths.get(IMG_FOLDER_PATH + "splash/" + champion.getKey() + ".png");
+                    Files.createDirectories(path.getParent());
+                    try (InputStream is = body.byteStream();
+                         OutputStream os = Files.newOutputStream(path)) {
+                        BufferedImage img = ImageIO.read(is);
+                        ImageIO.write(img, "png", os);
+                    }
+                }
+            } catch (IOException e) {
+                LOGGER.error(e.getMessage(), e);
+            }
+        }
+
+        // Download every champion tile and write them to PNG files
+        for (Champion champion : allChampions) {
+            String championKey = champion.getKey();
+            url = "https://raw.communitydragon.org/" + latestCDragonVersion[0] +
+                    "/plugins/rcp-be-lol-game-data/global/default/v1/champion-tiles/" +
+                    champion.getId() + "/" + champion.getId() + "000.jpg";
+            request = new Request.Builder().url(url).build();
+            LOGGER.info("Making GET request to " + url);
+            try (Response response = client.newCall(request).execute();
+                 ResponseBody body = response.body()) {
+                assert body != null; // Body is non-null as it comes from Call#execute
+                if (response.code() == 200) {
+                    Path path = Paths.get(IMG_FOLDER_PATH + "tile/" + championKey + ".png");
+                    Files.createDirectories(path.getParent());
+                    try (InputStream is = body.byteStream();
+                         OutputStream os = Files.newOutputStream(path)) {
+                        BufferedImage img = ImageIO.read(is);
+                        ImageIO.write(img, "png", os);
+                    }
+                }
+            } catch (IOException e) {
+                LOGGER.error(e.getMessage(), e);
+            }
+        }
+
+        // Shutdown our OkHttp client
+        client.dispatcher().executorService().shutdown();
+        client.connectionPool().evictAll();
+
+        // Update latest patch in config
+        SettingsManager.getManager().updateValue("debug.cdragonPatch",
+                ConfigValueFactory.fromAnyRef(latestCDragonVersion[1]));
+    }
+
+    /**
+     * Finds the latest CDragon version available.
+     *
+     * @param client An {@link OkHttpClient} to be used for performing requests.
+     * @return An array of {@link String} of size 2 with:<br>
+     * - [0] The CDragon version<br>
+     * - [1] The corresponding game version
+     * @throws IOException Thrown if a connection error occurs.
+     */
+    @NotNull
+    private static String[] getLatestCDragonVersion(OkHttpClient client) throws IOException {
+        LOGGER.info("Checking if CDragon has the latest patch data...");
+
+        int versionIndex = 0;
+        String gameVersion, stripped;
+        boolean found = false;
+        do {
+            gameVersion = Versions.get().get(versionIndex);
+            stripped = gameVersion.substring(0, gameVersion.length() - 2); // Removes the '.1' at the end of the version
+            String url = "https://raw.communitydragon.org/" + stripped + "/";
+            Request request = new Request.Builder().url(url).build();
+            try (Response response = client.newCall(request).execute()) {
+                if (response.code() == 200) {
+                    if (versionIndex == 0) {
+                        LOGGER.info("CDragon is up-to-date. Current version: " + stripped);
+                    } else {
+                        LOGGER.info("Found! Latest CDragon version is " + stripped);
+                    }
+                    found = true;
+                } else if (response.code() == 404) {
+                    ++versionIndex;
+                    LOGGER.warn("CDragon has not been updated yet... Trying with version " + Versions.get().get(versionIndex));
+                }
+            }
+        } while (!found);
+        return new String[]{stripped, gameVersion};
     }
 }
