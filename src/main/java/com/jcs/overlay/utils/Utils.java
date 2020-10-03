@@ -251,10 +251,4 @@ public class Utils {
         SettingsManager.getManager().updateValue("debug.latestPatch",
                 ConfigValueFactory.fromAnyRef(latestVersion));
     }
-
-    private interface psapi extends StdCallLibrary {
-        psapi INSTANCE = Native.load("psapi", psapi.class);
-
-        int GetModuleFileNameExA(WinNT.HANDLE hProcess, Pointer hModule, byte[] lpFilename, int nSize);
-    }
 }
