@@ -71,14 +71,14 @@ public class Utils {
         Kernel32 k32 = Kernel32.INSTANCE;
         WinNT.HANDLE snapshot = k32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, new WinDef.DWORD(0));
         Tlhelp32.PROCESSENTRY32.ByReference processEntry = new Tlhelp32.PROCESSENTRY32.ByReference();
-        char[] charbuf = new char[1024];
+        char[] charbuf = new char[WinDef.MAX_PATH];
         while (k32.Process32Next(snapshot, processEntry)) {
             if (Native.toString(processEntry.szExeFile).equals("LeagueClient.exe")) {
                 WinNT.HANDLE handle = k32.OpenProcess(
                         WinNT.PROCESS_QUERY_LIMITED_INFORMATION,
                         false,
                         processEntry.th32ProcessID.intValue());
-                IntByReference charbufSize = new IntByReference(1024);
+                IntByReference charbufSize = new IntByReference(WinDef.MAX_PATH);
                 boolean result = k32.QueryFullProcessImageName(handle, 0, charbuf, charbufSize);
                 k32.CloseHandle(handle);
                 if (result) { // Path was retrieved successfully
