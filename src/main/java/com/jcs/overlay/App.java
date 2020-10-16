@@ -1,10 +1,7 @@
 package com.jcs.overlay;
 
 import com.jcs.overlay.cef.CefManager;
-import com.jcs.overlay.utils.LockfileMonitor;
-import com.jcs.overlay.utils.SettingsManager;
-import com.jcs.overlay.utils.SettingsWatcher;
-import com.jcs.overlay.utils.Utils;
+import com.jcs.overlay.utils.*;
 import com.jcs.overlay.websocket.WSAutoReconnect;
 import com.jcs.overlay.websocket.WSClient;
 import com.jcs.overlay.websocket.WSServer;
@@ -43,15 +40,10 @@ public class App {
         // Pre-caching
         Champions.get().load();
         SummonerSpells.get().load();
-        if (Utils.checkForNewDDragonPatch()) {
-            LOGGER.info("New patch detected! Updating DDragon data...");
-            Utils.performDDragonUpdate();
-        }
 
-        if (Utils.checkForNewCDragonPatch()) {
-            LOGGER.info("CDragon data is outdated. Updating...");
-            Utils.performCDragonUpdate();
-        }
+        // Assets updates
+        AssetsUpdater.updateDDragonAssets();
+        AssetsUpdater.updateCDragonAssets();
 
         // Create lockfile monitor thread
         this.lockfileMonitorThread = new Thread(LockfileMonitor.getInstance());
