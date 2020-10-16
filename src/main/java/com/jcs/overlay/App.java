@@ -24,16 +24,23 @@ import static org.cef.CefApp.CefAppState.TERMINATED;
 
 public class App {
     private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
-    private static App APP;
     public static boolean noGUI;
+    private static boolean isStarted = false;
     private static boolean isClosed = false;
-    private final Thread lockfileMonitorThread;
-    private final Thread settingsWatcherThread;
-    private WSClient wsClient;
-    private WSAutoReconnect autoReconnect;
-    private Thread autoReconnectThread;
+    private static Thread lockfileMonitorThread;
+    private static Thread settingsWatcherThread;
+    private static WSClient wsClient;
+    private static WSAutoReconnect autoReconnect;
+    private static Thread autoReconnectThread;
 
-    private App() {
+    public static void main(String[] args) {
+        noGUI = (args.length > 0 && args[0].equals("-nogui"))
+                || SettingsManager.getManager().getConfig().getBoolean("debug.nogui");
+        init();
+        start();
+    }
+
+    private static void init() {
         // Orianna setup & pre-caching
         Orianna.loadConfiguration("config.json");
         Champions.get().load();
@@ -44,39 +51,34 @@ public class App {
         AssetsUpdater.updateCDragonAssets();
 
         // Create lockfile monitor thread
-        this.lockfileMonitorThread = new Thread(LockfileMonitor.getInstance());
-        this.lockfileMonitorThread.setName("Lockfile Monitor");
+        lockfileMonitorThread = new Thread(LockfileMonitor.getInstance());
+        lockfileMonitorThread.setName("Lockfile Monitor");
 
         // Create setttings watcher thread
-        this.settingsWatcherThread = new Thread(SettingsWatcher.getInstance());
-        this.settingsWatcherThread.setName("Settings Watcher");
+        settingsWatcherThread = new Thread(SettingsWatcher.getInstance());
+        settingsWatcherThread.setName("Settings Watcher");
     }
 
-    public static void main(String[] args) {
-        noGUI = (args.length > 0 && args[0].equals("-nogui"))
-                || SettingsManager.getManager().getConfig().getBoolean("debug.nogui");
-        APP = new App();
-        APP.start();
-    }
+    public static void start() {
+        if (isStarted) {
+            throw new IllegalStateException("App is already started");
+        }
 
-    public static App getApp() {
-        return APP;
-    }
-
-    synchronized public void start() {
-        this.lockfileMonitorThread.start();
+        lockfileMonitorThread.start();
         WSServer.getInstance().start();
-        this.settingsWatcherThread.start();
+        settingsWatcherThread.start();
         if (!noGUI) {
             //noinspection ResultOfMethodCallIgnored
             CefManager.getInstance(); // Initialize CEF singleton
         }
+
+        isStarted = true;
     }
 
     @Contract("_ -> fail") // Indicates that it WILL stop the application
-    synchronized public void stop(boolean force) {
+    public static synchronized void stop(boolean force) {
         if (isClosed) {
-            return;
+            throw new IllegalStateException("App is already closed");
         }
 
         LOGGER.info("Shutting down...");
@@ -94,7 +96,7 @@ public class App {
         SettingsWatcher.getInstance().stop();
         LOGGER.debug("Stopping settings watcher...");
         try {
-            this.settingsWatcherThread.join();
+            settingsWatcherThread.join();
             LOGGER.debug("Settings watcher stopped.");
         } catch (InterruptedException e) {
             LOGGER.error("Error stopping settings watcher", e);
@@ -103,16 +105,16 @@ public class App {
         LockfileMonitor.getInstance().stop();
         LOGGER.debug("Waiting for lockfile monitor to close...");
         try {
-            this.lockfileMonitorThread.join();
+            lockfileMonitorThread.join();
             LOGGER.debug("Lockfile monitor stopped.");
         } catch (InterruptedException e) {
             LOGGER.error("Error stopping lockfile monitor", e);
         }
 
-        if (this.wsClient != null) {
+        if (wsClient != null) {
             LOGGER.debug("Stopping wsClient...");
             try {
-                this.wsClient.closeBlocking();
+                wsClient.closeBlocking();
                 LOGGER.debug("wsClient stopped.");
             } catch (InterruptedException e) {
                 LOGGER.error("Error stopping wsClient", e);
@@ -127,11 +129,11 @@ public class App {
             LOGGER.error("Error stopping wsServer", e);
         }
 
-        if (this.autoReconnect != null) {
+        if (autoReconnect != null) {
             LOGGER.debug("Stopping WSAutoReconnect...");
-            this.autoReconnect.stop();
+            autoReconnect.stop();
             try {
-                this.autoReconnectThread.join();
+                autoReconnectThread.join();
                 LOGGER.debug("WSAutoReconnect stopped.");
             } catch (InterruptedException e) {
                 LOGGER.error("Error stopping WSAutoReconnect", e);
@@ -147,11 +149,11 @@ public class App {
         }
     }
 
-    public WSClient getWsClient() {
-        return this.wsClient;
+    public static WSClient getWsClient() {
+        return wsClient;
     }
 
-    public void onLeagueStart(String lockfileContent) {
+    public static void onLeagueStart(String lockfileContent) {
         LOGGER.debug("Client launched!");
 
         String[] parts = Utils.parseLockfile(lockfileContent);
@@ -162,32 +164,32 @@ public class App {
         Map<String, String> httpHeaders = new HashMap<>();
         httpHeaders.put("Authorization", Utils.fromPasswordToAuthToken(password));
 
-        this.wsClient = new WSClient(URI.create("wss://127.0.0.1:" + port + "/"), httpHeaders);
+        wsClient = new WSClient(URI.create("wss://127.0.0.1:" + port + "/"), httpHeaders);
         try {
-            this.wsClient.connectBlocking(5, TimeUnit.SECONDS);
+            wsClient.connectBlocking(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             LOGGER.error("Exception caught:", e);
             Thread.currentThread().interrupt();
         }
 
         // Start autoreconnect thread
-        this.autoReconnect = new WSAutoReconnect();
-        this.autoReconnectThread = new Thread(this.autoReconnect);
-        this.autoReconnectThread.setName("WebSocket Auto Reconnect");
-        this.autoReconnectThread.start();
+        autoReconnect = new WSAutoReconnect();
+        autoReconnectThread = new Thread(autoReconnect);
+        autoReconnectThread.setName("WebSocket Auto Reconnect");
+        autoReconnectThread.start();
     }
 
-    public void onLeagueStop() {
+    public static void onLeagueStop() {
         // Stop WSAutoReconnect
-        if (this.autoReconnect != null) {
-            this.autoReconnect.stop();
+        if (autoReconnect != null) {
+            autoReconnect.stop();
             try {
-                this.autoReconnectThread.join();
+                autoReconnectThread.join();
             } catch (InterruptedException e) {
                 LOGGER.error("Exception caught: ", e);
             }
-            this.autoReconnect = null;
-            this.autoReconnectThread = null;
+            autoReconnect = null;
+            autoReconnectThread = null;
             LOGGER.debug("Client closed.");
         }
     }

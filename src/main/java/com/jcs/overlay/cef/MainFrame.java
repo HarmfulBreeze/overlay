@@ -39,7 +39,7 @@ public class MainFrame extends JFrame {
             public void stateHasChanged(CefAppState state) {
                 // Shutdown the app if the native CEF part is terminated
                 if (state == CefApp.CefAppState.TERMINATED) {
-                    App.getApp().stop(false);
+                    App.stop(false);
                 }
             }
         });
@@ -53,16 +53,16 @@ public class MainFrame extends JFrame {
                         "Download the win32 version of overlay or setup 64-bit Java.";
                 LOGGER.error(errorMessage);
                 JOptionPane.showMessageDialog(null, errorMessage, "Error!", JOptionPane.ERROR_MESSAGE);
-                App.getApp().stop(true);
+                App.stop(true);
             } else if (ule.getMessage().contains("Can't load AMD 64-bit .dll")) {
                 String errorMessage = "Cannot run the 32-bit version of overlay with a 64-bit Java installation.\n" +
                         "Download the win64 version of overlay or setup 32-bit Java.";
                 LOGGER.error(errorMessage);
                 JOptionPane.showMessageDialog(null, errorMessage, "Error!", JOptionPane.ERROR_MESSAGE);
-                App.getApp().stop(true);
+                App.stop(true);
             } else {
                 LOGGER.error("Could not load CEF!", ule);
-                App.getApp().stop(true);
+                App.stop(true);
             }
         }
 

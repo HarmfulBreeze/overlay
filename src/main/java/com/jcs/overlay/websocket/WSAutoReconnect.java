@@ -12,11 +12,11 @@ public class WSAutoReconnect implements Runnable {
 
     @Override
     public void run() {
-        WebSocketClient client = App.getApp().getWsClient();
+        WebSocketClient client = App.getWsClient();
         while (client == null) {
             try {
                 Thread.sleep(500);
-                client = App.getApp().getWsClient();
+                client = App.getWsClient();
             } catch (InterruptedException e) {
                 LOGGER.error("Exception caught: ", e);
             }

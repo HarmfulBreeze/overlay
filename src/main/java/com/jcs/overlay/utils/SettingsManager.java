@@ -112,7 +112,7 @@ public final class SettingsManager {
             CefManager.getInstance().getMainFrame().resizeWindow(windowWidth, windowHeight);
         }
         // Webapp config
-        WSClient wsClient = App.getApp().getWsClient();
+        WSClient wsClient = App.getWsClient();
         if (wsClient != null && wsClient.championSelectHasStarted()) {
             SetupWebappMessage msg = new SetupWebappMessage();
             WSServer.getInstance().broadcastWebappMessage(SetupWebappMessage.class, msg);

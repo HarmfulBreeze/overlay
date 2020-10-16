@@ -67,7 +67,7 @@ public class LockfileMonitor implements Runnable {
             String lockfileContent = Utils.readLockfile(lockfilePath);
             if (lockfileContent != null && !lockfileContent.isEmpty()) {
                 this.leagueStarted = true;
-                App.getApp().onLeagueStart(lockfileContent);
+                App.onLeagueStart(lockfileContent);
             } else {
                 this.leagueStarted = false;
             }
@@ -90,13 +90,13 @@ public class LockfileMonitor implements Runnable {
                             if (this.leagueStarted) {
                                 continue;
                             }
-                            App.getApp().onLeagueStop();
+                            App.onLeagueStop();
                             lockfileContent = Utils.readLockfile(lockfilePath);
-                            App.getApp().onLeagueStart(lockfileContent);
+                            App.onLeagueStart(lockfileContent);
                             this.setLeagueStarted(true);
                         } else if (event.kind() == ENTRY_DELETE) { // lockfile deleted -> client closed
                             this.setLeagueStarted(false);
-                            App.getApp().onLeagueStop();
+                            App.onLeagueStop();
                         }
                     }
                 }

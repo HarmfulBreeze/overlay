@@ -77,7 +77,7 @@ public class WSClient extends WebSocketClient {
             this.setSocketFactory(factory);
         } catch (NoSuchAlgorithmException | KeyManagementException e) {
             LOGGER.error("Could not get a proper SSL context!", e);
-            App.getApp().stop(true);
+            App.stop(true);
         }
     }
 
