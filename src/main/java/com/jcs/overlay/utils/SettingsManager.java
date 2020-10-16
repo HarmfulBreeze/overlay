@@ -121,7 +121,8 @@ public final class SettingsManager {
         // Check non-updatable settings
         if (this.config.getBoolean("debug.nogui") != prevConf.getBoolean("debug.nogui")
                 || this.config.getBoolean("cef.disableGpuCompositing") != prevConf.getBoolean("cef.disableGpuCompositing")
-                || !this.config.getString("debug.latestPatch").equals(prevConf.getString("debug.latestPatch"))) {
+                || !this.config.getString("debug.cdragonPatch").equals(prevConf.getString("debug.cdragonPatch"))
+                || !this.config.getString("debug.ddragonPatch").equals(prevConf.getString("debug.ddragonPatch"))) {
             LOGGER.info("Configuration updated. Some settings need Overlay to be restarted in order to take effect.");
         } else {
             LOGGER.info("Configuration updated.");
