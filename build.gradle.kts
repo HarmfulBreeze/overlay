@@ -14,14 +14,15 @@ configurations {
     create("implementationW64")
     create("W32")
     create("W64")
-    compileOnly.get().extendsFrom(configurations["implementationW32"])
-    compileOnly.get().extendsFrom(configurations["implementationW64"])
 
+    compileOnly {
+        extendsFrom(configurations["implementationW32"])
+        extendsFrom(configurations["implementationW64"])
+    }
     "W32" {
         extendsFrom(configurations["implementationW32"])
         extendsFrom(configurations["runtimeClasspath"])
     }
-
     "W64" {
         extendsFrom(configurations["implementationW64"])
         extendsFrom(configurations["runtimeClasspath"])
@@ -103,7 +104,8 @@ tasks.register<ShadowJar>("shadowJarW32") {
 
     manifest.attributes["Main-Class"] = project.application.mainClassName
 
-    from(project.sourceSets.main.get().output + project.configurations["W32"])
+    configurations = listOf(project.configurations["W32"])
+    from(project.sourceSets.main.get().output)
 }
 
 tasks.register<ShadowJar>("shadowJarW64") {
@@ -116,7 +118,8 @@ tasks.register<ShadowJar>("shadowJarW64") {
 
     manifest.attributes["Main-Class"] = project.application.mainClassName
 
-    from(project.sourceSets.main.get().output + project.configurations["W64"])
+    configurations = listOf(project.configurations["W64"])
+    from(project.sourceSets.main.get().output)
 }
 
 tasks.register<JavaExec>("runW32") {
