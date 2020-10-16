@@ -101,6 +101,8 @@ tasks.register<ShadowJar>("shadowJarW32") {
     archiveClassifier.set("win32")
     archiveVersion.set("v" + (regex.find(project.version as CharSequence)?.value))
 
+    manifest.attributes["Main-Class"] = project.application.mainClassName
+
     from(project.sourceSets.main.get().output + project.configurations["W32"])
 }
 
@@ -111,6 +113,8 @@ tasks.register<ShadowJar>("shadowJarW64") {
     val regex = Regex("""(?:\d+\.)+(?:\d+)?(?:pre|[a-z]?)?""")
     archiveClassifier.set("win64")
     archiveVersion.set("v" + (regex.find(project.version as CharSequence)?.value))
+
+    manifest.attributes["Main-Class"] = project.application.mainClassName
 
     from(project.sourceSets.main.get().output + project.configurations["W64"])
 }
