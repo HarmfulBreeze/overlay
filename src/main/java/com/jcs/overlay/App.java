@@ -25,7 +25,7 @@ import static org.cef.CefApp.CefAppState.TERMINATED;
 public class App {
     private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
     private static App APP;
-    private static boolean noGUI;
+    public static boolean noGUI;
     private static boolean isClosed = false;
     private final Thread lockfileMonitorThread;
     private final Thread settingsWatcherThread;
@@ -34,10 +34,8 @@ public class App {
     private Thread autoReconnectThread;
 
     private App() {
-        // Orianna
+        // Orianna setup & pre-caching
         Orianna.loadConfiguration("config.json");
-
-        // Pre-caching
         Champions.get().load();
         SummonerSpells.get().load();
 
@@ -52,10 +50,6 @@ public class App {
         // Create setttings watcher thread
         this.settingsWatcherThread = new Thread(SettingsWatcher.getInstance());
         this.settingsWatcherThread.setName("Settings Watcher");
-    }
-
-    public static boolean isNoGUI() {
-        return noGUI;
     }
 
     public static void main(String[] args) {

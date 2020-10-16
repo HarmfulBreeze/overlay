@@ -106,7 +106,7 @@ public final class SettingsManager {
         // Update config where needed
         LOGGER.info("Updating configuration...");
         // Window size
-        if (!App.isNoGUI()) {
+        if (!App.noGUI) {
             int windowWidth = this.config.getInt("window.width");
             int windowHeight = this.config.getInt("window.height");
             CefManager.getInstance().getMainFrame().resizeWindow(windowWidth, windowHeight);
