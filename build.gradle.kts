@@ -97,8 +97,9 @@ tasks.register<ShadowJar>("shadowJarW32") {
     group = "shadow"
     description = "Create a combined JAR of project and runtime dependencies for the win32 platform"
 
+    val regex = Regex("""(?:\d+\.)+(?:\d+)?(?:pre|[a-z]?)?""")
     archiveClassifier.set("win32")
-    archiveVersion.set("v" + project.version)
+    archiveVersion.set("v" + (regex.find(project.version as CharSequence)?.value))
 
     from(project.sourceSets.main.get().output + project.configurations["W32"])
 }
