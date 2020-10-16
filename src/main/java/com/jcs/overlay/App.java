@@ -149,10 +149,6 @@ public class App {
         }
     }
 
-    public static WSClient getWsClient() {
-        return wsClient;
-    }
-
     public static void onLeagueStart(String lockfileContent) {
         LOGGER.debug("Client launched!");
 
@@ -173,7 +169,7 @@ public class App {
         }
 
         // Start autoreconnect thread
-        autoReconnect = new WSAutoReconnect();
+        autoReconnect = new WSAutoReconnect(wsClient);
         autoReconnectThread = new Thread(autoReconnect);
         autoReconnectThread.setName("WebSocket Auto Reconnect");
         autoReconnectThread.start();
@@ -190,8 +186,12 @@ public class App {
             }
             autoReconnect = null;
             autoReconnectThread = null;
-            LOGGER.debug("Client closed.");
         }
+        LOGGER.debug("Client closed.");
+    }
+
+    public static WSClient getWsClient() {
+        return wsClient;
     }
 }
 

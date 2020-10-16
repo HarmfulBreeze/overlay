@@ -26,7 +26,7 @@ public class AssetsUpdater {
     private AssetsUpdater() {
         throw new UnsupportedOperationException("Utility class");
     }
-    
+
     public static void updateDDragonAssets() {
         LOGGER.info("Checking for updated DDragon assets...");
         if (checkForNewDDragonPatch()) {
@@ -40,18 +40,30 @@ public class AssetsUpdater {
     public static void updateCDragonAssets() {
         LOGGER.info("Checking for updated CDragon assets...");
         boolean newAssetsAvailable;
+        String[] latestCDragonVersion;
+        OkHttpClient client = new OkHttpClient();
         try {
-            newAssetsAvailable = checkForNewCDragonPatch();
+            latestCDragonVersion = getLatestCDragonVersion(client);
+        } catch (IOException e) {
+            LOGGER.error("Could not retrieve the latest CDragon version.", e);
+            return;
+        }
+        try {
+            newAssetsAvailable = checkForNewCDragonPatch(latestCDragonVersion);
         } catch (IOException e) {
             LOGGER.error("Could not verify the availability of updated CDragon assets.", e);
             return;
         }
         if (newAssetsAvailable) {
             LOGGER.info("New CDragon assets are available. Updating...");
-            performCDragonUpdate();
+            performCDragonUpdate(client, latestCDragonVersion);
         } else {
             LOGGER.info("No updated CDragon assets available.");
         }
+
+        // Shutdown our OkHttp client
+        client.dispatcher().executorService().shutdown();
+        client.connectionPool().evictAll();
     }
 
     /**
@@ -68,16 +80,14 @@ public class AssetsUpdater {
     /**
      * Checks if a new CDragon Raw version was released since the last startup.
      *
+     * @param latestCDragonVersion from {@link #getLatestCDragonVersion(OkHttpClient)}
      * @return {@code true} if a new patch was released, else {@code false}.
      */
-    private static boolean checkForNewCDragonPatch() throws IOException { // TODO: move check logic in this function
+    private static boolean checkForNewCDragonPatch(String[] latestCDragonVersion) throws IOException { // TODO: move check logic in this function
         // localVersion is in game version format
         String localVersion = SettingsManager.getManager().getConfig().getString("debug.cdragonPatch");
         String latestVersion = Versions.get().get(0);
         if (!localVersion.equals(latestVersion)) {
-            OkHttpClient client = new OkHttpClient();
-            String[] latestCDragonVersion;
-            latestCDragonVersion = getLatestCDragonVersion(client);
             return !latestCDragonVersion[1].equals(localVersion);
         } else {
             return false;
@@ -85,8 +95,6 @@ public class AssetsUpdater {
     }
 
     private static void performDDragonUpdate() {
-        OkHttpClient client = new OkHttpClient();
-
         // Download all summoner spells images and write them to PNG files
         SummonerSpells spells = SummonerSpells.get();
         for (SummonerSpell spell : spells) {
@@ -115,33 +123,14 @@ public class AssetsUpdater {
             }
         }
 
-        // Shutdown our OkHttp client
-        client.dispatcher().executorService().shutdown();
-        client.connectionPool().evictAll();
-
-
         // Update latest patch in config
         String latestVersion = Versions.get().get(0);
         SettingsManager.getManager().updateValue("debug.latestPatch",
                 ConfigValueFactory.fromAnyRef(latestVersion));
     }
 
-    private static void performCDragonUpdate() {
-        OkHttpClient client = new OkHttpClient();
-
+    private static void performCDragonUpdate(OkHttpClient client, String[] latestCDragonVersion) {
         Champions allChampions = Champions.get();
-        String[] latestCDragonVersion;
-        try {
-            latestCDragonVersion = getLatestCDragonVersion(client);
-        } catch (IOException e) {
-            LOGGER.error("Could not retrieve latest CDragon version. Skipping CDragon update.");
-            return;
-        }
-
-        if (latestCDragonVersion[1].equals(SettingsManager.getManager().getConfig().getString("debug.cdragonPatch"))) {
-            LOGGER.warn("CDragon still has outdated data, skipping CDragon update.");
-            return;
-        }
 
         // Download the generic champion icon and write it to a PNG file
         String url = "https://raw.communitydragon.org/" + latestCDragonVersion[0] +
@@ -213,10 +202,6 @@ public class AssetsUpdater {
             }
         }
 
-        // Shutdown our OkHttp client
-        client.dispatcher().executorService().shutdown();
-        client.connectionPool().evictAll();
-
         // Update latest patch in config
         SettingsManager.getManager().updateValue("debug.cdragonPatch",
                 ConfigValueFactory.fromAnyRef(latestCDragonVersion[1]));
@@ -233,8 +218,6 @@ public class AssetsUpdater {
      */
     @NotNull
     private static String[] getLatestCDragonVersion(OkHttpClient client) throws IOException {
-        LOGGER.info("Checking if CDragon has the latest patch data...");
-
         int versionIndex = 0;
         String gameVersion, stripped;
         boolean found = false;
@@ -246,7 +229,7 @@ public class AssetsUpdater {
             try (Response response = client.newCall(request).execute()) {
                 if (response.code() == 200) {
                     if (versionIndex == 0) {
-                        LOGGER.info("CDragon is up-to-date. Current version: " + stripped);
+                        LOGGER.info("CDragon version matches game version.");
                     } else {
                         LOGGER.info("Found! Latest CDragon version is " + stripped);
                     }

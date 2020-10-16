@@ -1,6 +1,5 @@
 package com.jcs.overlay.websocket;
 
-import com.jcs.overlay.App;
 import com.jcs.overlay.utils.LockfileMonitor;
 import org.java_websocket.client.WebSocketClient;
 import org.slf4j.Logger;
@@ -9,26 +8,21 @@ import org.slf4j.LoggerFactory;
 public class WSAutoReconnect implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSAutoReconnect.class);
     private boolean shouldStop = false;
+    private final WebSocketClient wsClient;
+
+    public WSAutoReconnect(WSClient wsClient) {
+        this.wsClient = wsClient;
+    }
 
     @Override
     public void run() {
-        WebSocketClient client = App.getWsClient();
-        while (client == null) {
-            try {
-                Thread.sleep(500);
-                client = App.getWsClient();
-            } catch (InterruptedException e) {
-                LOGGER.error("Exception caught: ", e);
-            }
-        }
-
         int stopCount = 1;
         while (!this.shouldStop && stopCount <= 10) {
             try {
-                if (!client.isOpen()) {
+                if (!this.wsClient.isOpen()) {
                     LOGGER.info("Trying to reconnect... (" + stopCount + "/10)");
-                    client.reconnectBlocking();
-                    if (client.isOpen()) {
+                    this.wsClient.reconnectBlocking();
+                    if (this.wsClient.isOpen()) {
                         stopCount = 1;
                     } else {
                         LockfileMonitor.getInstance().setLeagueStarted(false);
