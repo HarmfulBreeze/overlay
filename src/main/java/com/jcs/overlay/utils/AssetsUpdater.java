@@ -125,7 +125,7 @@ public class AssetsUpdater {
 
         // Update latest patch in config
         String latestVersion = Versions.get().get(0);
-        SettingsManager.getManager().updateValue("debug.latestPatch",
+        SettingsManager.getManager().updateValue("debug.ddragonPatch",
                 ConfigValueFactory.fromAnyRef(latestVersion));
     }
 
