@@ -124,8 +124,8 @@ public class AssetsUpdater {
                 "/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/-1.png";
         Request request = new Request.Builder().url(url).build();
         LOGGER.info("Making GET request to " + url);
-        try (Response response = client.newCall(request).execute();
-             ResponseBody body = response.body()) {
+        try (Response response = client.newCall(request).execute()) {
+            ResponseBody body = response.body();
             assert body != null; // Body is non-null as it comes from Call#execute
             if (response.code() == 200) {
                 Path path = Paths.get(IMG_FOLDER_PATH, "icon/champion/icon_None.png");
@@ -147,8 +147,8 @@ public class AssetsUpdater {
                     champion.getId() + "/" + champion.getId() + "000.jpg";
             request = new Request.Builder().url(url).build();
             LOGGER.info("Making GET request to " + url);
-            try (Response response = client.newCall(request).execute();
-                 ResponseBody body = response.body()) {
+            try (Response response = client.newCall(request).execute()) {
+                ResponseBody body = response.body();
                 assert body != null; // Body is non-null as it comes from Call#execute
                 if (response.code() == 200) {
                     Path path = Paths.get(IMG_FOLDER_PATH + "splash/" + champion.getKey() + ".png");
@@ -172,8 +172,8 @@ public class AssetsUpdater {
                     champion.getId() + "/" + champion.getId() + "000.jpg";
             request = new Request.Builder().url(url).build();
             LOGGER.info("Making GET request to " + url);
-            try (Response response = client.newCall(request).execute();
-                 ResponseBody body = response.body()) {
+            try (Response response = client.newCall(request).execute()) {
+                ResponseBody body = response.body();
                 assert body != null; // Body is non-null as it comes from Call#execute
                 if (response.code() == 200) {
                     Path path = Paths.get(IMG_FOLDER_PATH + "tile/" + championKey + ".png");
