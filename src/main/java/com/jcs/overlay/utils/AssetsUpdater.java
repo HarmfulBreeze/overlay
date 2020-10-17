@@ -15,9 +15,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
-import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -218,35 +219,33 @@ public class AssetsUpdater {
         if (since != null) {
             ZonedDateTime lastModifiedTime = getLastModifiedTimeForURL(client, url);
             if (lastModifiedTime == null || lastModifiedTime.isAfter(since)) {
-                try (ResponseBody body = getResponseBodyForURL(client, url);
-                     ImageInputStream iis = ImageIO.createImageInputStream(body.byteStream())) {
-                    writeImageToPngFile(iis, path);
-                }
+                byte[] bytes = getResponseBodyBytesForURL(client, url);
+                InputStream is = new ByteArrayInputStream(bytes);
+                writeImageToPngFile(is, path);
             }
         } else {
-            try (ResponseBody body = getResponseBodyForURL(client, url);
-                 ImageInputStream iis = ImageIO.createImageInputStream(body.byteStream())) {
-                writeImageToPngFile(iis, path);
-            }
+            byte[] bytes = getResponseBodyBytesForURL(client, url);
+            InputStream is = new ByteArrayInputStream(bytes);
+            writeImageToPngFile(is, path);
         }
     }
 
     /**
-     * GETs the {@link ResponseBody} for a specified URL. {@code ResponseBodies} must be closed.
+     * GETs the {@code bytes} from the {@link ResponseBody} for a specified URL.
      *
      * @param client the {@link OkHttpClient} to be used for sending the request.
      * @param url    the URL to send the request to.
-     * @return The {@link ResponseBody} of the GET request. Call {@link ResponseBody#close} when you are done.
+     * @return A {@code byte[]} of the body of the GET request.
      * @throws IOException in case the request fails.
      */
-    private static ResponseBody getResponseBodyForURL(OkHttpClient client, String url) throws IOException {
+    private static byte[] getResponseBodyBytesForURL(OkHttpClient client, String url) throws IOException {
         Request getRequest = new Request.Builder().url(url).build();
         LOGGER.info("Making GET request to " + url);
         try (Response response = client.newCall(getRequest).execute()) {
             if (response.code() == 200) {
                 ResponseBody body = response.body();
                 assert body != null; // Body is non-null as it comes from Call#execute
-                return body;
+                return body.bytes();
             } else {
                 throw new IOException("Unexpected HTTP response code: " + response.code());
             }
@@ -269,19 +268,19 @@ public class AssetsUpdater {
     }
 
     /**
-     * Writes the {@link ImageInputStream} of an image into the file at the provided {@link Path}, creating parent
+     * Writes the {@link InputStream} of an image into the file at the provided {@link Path}, creating parent
      * directories if they do not exist.
      *
-     * @param iis  The {@link ImageInputStream}. It will not be closed by this method.
+     * @param is   The {@link InputStream}. It will not be closed by this method.
      * @param path The {@link Path} at which the file will be written to.
      * @throws IOException if parent directories could not all be created, if an {@link OutputStream} could not be
      *                     opened at {@code path}, or if an error occurs while reading from {@code iis}/writing
      *                     into the file.
      */
-    private static void writeImageToPngFile(ImageInputStream iis, Path path) throws IOException {
+    private static void writeImageToPngFile(InputStream is, Path path) throws IOException {
         Files.createDirectories(path.getParent());
         OutputStream os = Files.newOutputStream(path);
-        BufferedImage img = ImageIO.read(iis);
+        BufferedImage img = ImageIO.read(is);
         ImageIO.write(img, "png", os);
     }
 
