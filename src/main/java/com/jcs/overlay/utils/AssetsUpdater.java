@@ -11,8 +11,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,15 +22,19 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
 
 public class AssetsUpdater {
     private static final Logger LOGGER = LoggerFactory.getLogger(AssetsUpdater.class);
     private static final String IMG_FOLDER_PATH = System.getProperty("user.dir") + "/web/img/";
-    private static final DateTimeFormatter RFC1123_FORMATTER = DateTimeFormat
-            .forPattern("EEE, dd MMM yyyy HH:mm:ss 'GMT'")
-            .withZoneUTC()
-            .withLocale(Locale.US);
+    private static final DateTimeFormatter RFC1123_FORMATTER = DateTimeFormatter
+            .ofPattern("EEE, dd MMM yyyy HH:mm:ss z", Locale.ENGLISH)
+            .withZone(ZoneId.of("GMT"));
 
     private AssetsUpdater() {
         throw new UnsupportedOperationException("Utility class");
@@ -138,12 +140,15 @@ public class AssetsUpdater {
     private static void performCDragonUpdate(OkHttpClient client, String latestCDragonPatch, String localCDragonPatch) {
         Champions allChampions = Champions.get();
         SearchableList<Patch> patchList = Patches.named(localCDragonPatch).get();
-        DateTime localPatchReleaseTime;
+        ZonedDateTime localPatchReleaseTime;
         boolean success = true;
 
         // if (patchList.size() > 0) {
         if (patchList.size() > 0 && patchList.get(0).getStartTime() != null) { // hack for not-empty patchList with invalid name
-            localPatchReleaseTime = patchList.get(0).getStartTime().withZone(DateTimeZone.UTC);
+            DateTime jodaUTCStartTime = patchList.get(0).getStartTime().withZone(DateTimeZone.UTC);
+            Instant instant = Instant.ofEpochMilli(jodaUTCStartTime.getMillis());
+            ZoneId zoneId = ZoneId.of(jodaUTCStartTime.getZone().getID(), ZoneId.SHORT_IDS);
+            localPatchReleaseTime = ZonedDateTime.ofInstant(instant, zoneId);
         } else {
             localPatchReleaseTime = null; // localCDragonPatch is not a valid patch
         }
@@ -207,12 +212,12 @@ public class AssetsUpdater {
      * @param path   a {@link Path} to where the PNG file should be saved.
      */
     private static void downloadPngIfModified(OkHttpClient client,
-                                              @Nullable DateTime since,
+                                              @Nullable ZonedDateTime since,
                                               String url,
                                               Path path) throws IOException {
         if (since != null) {
-            DateTime lastModifiedTime = getLastModifiedTimeForURL(client, url);
-            if (lastModifiedTime.isAfter(since)) {
+            ZonedDateTime lastModifiedTime = getLastModifiedTimeForURL(client, url);
+            if (lastModifiedTime == null || lastModifiedTime.isAfter(since)) {
                 try (ResponseBody body = getResponseBodyForURL(client, url);
                      ImageInputStream iis = ImageIO.createImageInputStream(body.byteStream())) {
                     writeImageToPngFile(iis, path);
@@ -288,11 +293,17 @@ public class AssetsUpdater {
      * @return a {@link DateTime} holding the last modified time.
      * @throws IOException if the HTTP request fails.
      */
-    private static DateTime getLastModifiedTimeForURL(OkHttpClient client, String url) throws IOException {
+    private static ZonedDateTime getLastModifiedTimeForURL(OkHttpClient client, String url) throws IOException {
         Request req = new Request.Builder().url(url).head().build();
         LOGGER.info("Making HEAD request to " + url);
         try (Response res = client.newCall(req).execute()) {
-            return RFC1123_FORMATTER.parseDateTime(res.header("Last-Modified"));
+            String header = res.header("Last-Modified");
+            if (header != null) {
+                TemporalAccessor parse = RFC1123_FORMATTER.parse(header);
+                return ZonedDateTime.from(parse);
+            } else {
+                return null;
+            }
         }
     }
 
