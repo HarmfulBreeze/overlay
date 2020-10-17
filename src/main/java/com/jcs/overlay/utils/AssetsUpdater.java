@@ -38,32 +38,36 @@ public class AssetsUpdater {
     }
 
     public static void updateCDragonAssets() {
-        LOGGER.info("Checking for updated CDragon assets...");
-        boolean newAssetsAvailable;
-        String[] latestCDragonVersion;
-        OkHttpClient client = new OkHttpClient();
-        try {
-            latestCDragonVersion = getLatestCDragonVersion(client);
-        } catch (IOException e) {
-            LOGGER.error("Could not retrieve the latest CDragon version.", e);
-            return;
-        }
-        try {
-            newAssetsAvailable = checkForNewCDragonPatch(latestCDragonVersion);
-        } catch (IOException e) {
-            LOGGER.error("Could not verify the availability of updated CDragon assets.", e);
-            return;
-        }
-        if (newAssetsAvailable) {
-            LOGGER.info("New CDragon assets are available. Updating...");
-            performCDragonUpdate(client, latestCDragonVersion);
+        LOGGER.info("Checking for a CDragon assets update...");
+        String latestGamePatch = Patches.get().get(0).getName();
+        LOGGER.debug("Latest game patch is {}.", latestGamePatch);
+        String localCDragonPatch = SettingsManager.getManager().getConfig().getString("debug.cdragonPatch");
+        if (!latestGamePatch.equals(localCDragonPatch)) {
+            LOGGER.info("Local CDragon assets patch does not match latest game patch. Checking for updated assets...");
+            OkHttpClient client = new OkHttpClient();
+            String latestCDragonVersion;
+            try {
+                LOGGER.debug("Retrieving latest CDragon version...");
+                latestCDragonVersion = getLatestCDragonVersion(client);
+                LOGGER.debug("Latest CDragon version is {}.", latestCDragonVersion);
+            } catch (IOException | IndexOutOfBoundsException e) {
+                LOGGER.error("Could not retrieve the latest CDragon version.", e);
+                return;
+            }
+            if (latestGamePatch.equals(latestCDragonVersion)) {
+                LOGGER.info("Updated assets are available! Updating.");
+                performCDragonUpdate(client, latestCDragonVersion);
+                LOGGER.info("CDragon assets update has been successfully completed.");
+            } else {
+                LOGGER.warn("Updated assets for patch {} are not available yet. " +
+                        "Overlay will check again on next startup.", latestGamePatch);
+            }
+            // Shutdown our OkHttp client
+            client.dispatcher().executorService().shutdown();
+            client.connectionPool().evictAll();
         } else {
-            LOGGER.info("No updated CDragon assets available.");
+            LOGGER.info("CDragon assets are up-to-date.");
         }
-
-        // Shutdown our OkHttp client
-        client.dispatcher().executorService().shutdown();
-        client.connectionPool().evictAll();
     }
 
     /**
@@ -75,23 +79,6 @@ public class AssetsUpdater {
         String localVersion = SettingsManager.getManager().getConfig().getString("debug.ddragonPatch");
         String latestVersion = Versions.get().get(0);
         return !localVersion.equals(latestVersion);
-    }
-
-    /**
-     * Checks if a new CDragon Raw version was released since the last startup.
-     *
-     * @param latestCDragonVersion from {@link #getLatestCDragonVersion(OkHttpClient)}
-     * @return {@code true} if a new patch was released, else {@code false}.
-     */
-    private static boolean checkForNewCDragonPatch(String[] latestCDragonVersion) throws IOException { // TODO: move check logic in this function
-        // localVersion is in game version format
-        String localVersion = SettingsManager.getManager().getConfig().getString("debug.cdragonPatch");
-        String latestVersion = Versions.get().get(0);
-        if (!localVersion.equals(latestVersion)) {
-            return !latestCDragonVersion[1].equals(localVersion);
-        } else {
-            return false;
-        }
     }
 
     private static void performDDragonUpdate() {
@@ -129,11 +116,11 @@ public class AssetsUpdater {
                 ConfigValueFactory.fromAnyRef(latestVersion));
     }
 
-    private static void performCDragonUpdate(OkHttpClient client, String[] latestCDragonVersion) {
+    private static void performCDragonUpdate(OkHttpClient client, String latestCDragonVersion) {
         Champions allChampions = Champions.get();
 
         // Download the generic champion icon and write it to a PNG file
-        String url = "https://raw.communitydragon.org/" + latestCDragonVersion[0] +
+        String url = "https://raw.communitydragon.org/" + latestCDragonVersion +
                 "/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/-1.png";
         Request request = new Request.Builder().url(url).build();
         LOGGER.info("Making GET request to " + url);
@@ -155,7 +142,7 @@ public class AssetsUpdater {
 
         // Download every champion's centered splash art and write them to PNG files
         for (Champion champion : allChampions) {
-            url = "https://raw.communitydragon.org/" + latestCDragonVersion[0] +
+            url = "https://raw.communitydragon.org/" + latestCDragonVersion +
                     "/plugins/rcp-be-lol-game-data/global/default/v1/champion-splashes/" +
                     champion.getId() + "/" + champion.getId() + "000.jpg";
             request = new Request.Builder().url(url).build();
@@ -180,7 +167,7 @@ public class AssetsUpdater {
         // Download every champion tile and write them to PNG files
         for (Champion champion : allChampions) {
             String championKey = champion.getKey();
-            url = "https://raw.communitydragon.org/" + latestCDragonVersion[0] +
+            url = "https://raw.communitydragon.org/" + latestCDragonVersion +
                     "/plugins/rcp-be-lol-game-data/global/default/v1/champion-tiles/" +
                     champion.getId() + "/" + champion.getId() + "000.jpg";
             request = new Request.Builder().url(url).build();
@@ -204,42 +191,35 @@ public class AssetsUpdater {
 
         // Update latest patch in config
         SettingsManager.getManager().updateValue("debug.cdragonPatch",
-                ConfigValueFactory.fromAnyRef(latestCDragonVersion[1]));
+                ConfigValueFactory.fromAnyRef(latestCDragonVersion));
     }
 
     /**
      * Finds the latest CDragon version available.
      *
      * @param client an {@link OkHttpClient} to be used for performing requests.
-     * @return an array of {@link String} of size 2 with:<br>
-     * - [0] The CDragon version (in CDragon format, for example, 10.2 for a 10.2.1 game version)<br>
-     * - [1] The corresponding game version (in game version format, like 10.2.1)
-     * @throws IOException if the request could not be executed due to cancellation, a connectivity problem or timeout.
+     * @return a {@link String} of the latest patch of which CDragon has assets.
+     * @throws IOException               if the request could not be executed due to cancellation, a connectivity problem or timeout,
+     *                                   or if the HTTP response code was unexpected.
+     * @throws IndexOutOfBoundsException if all patches were tried and none were valid as a CDragon patch.
      */
     @NotNull
-    private static String[] getLatestCDragonVersion(OkHttpClient client) throws IOException {
-        int versionIndex = 0;
-        String gameVersion, stripped;
-        boolean found = false;
+    private static String getLatestCDragonVersion(OkHttpClient client) throws IOException, IndexOutOfBoundsException {
+        int patchIndex = 0;
+        String gamePatch;
         do {
-            gameVersion = Versions.get().get(versionIndex);
-            stripped = gameVersion.substring(0, gameVersion.length() - 2); // Removes the '.1' at the end of the version
-            String url = "https://raw.communitydragon.org/" + stripped + "/";
+            gamePatch = Patches.get().get(patchIndex).getName();
+            String url = "https://raw.communitydragon.org/" + gamePatch + "/";
             Request request = new Request.Builder().url(url).build();
             try (Response response = client.newCall(request).execute()) {
                 if (response.code() == 200) {
-                    if (versionIndex == 0) {
-                        LOGGER.info("CDragon version matches game version.");
-                    } else {
-                        LOGGER.info("Found! Latest CDragon version is " + stripped);
-                    }
-                    found = true;
+                    return gamePatch;
                 } else if (response.code() == 404) {
-                    ++versionIndex;
-                    LOGGER.warn("CDragon has not been updated yet... Trying with version " + Versions.get().get(versionIndex));
+                    ++patchIndex;
+                } else {
+                    throw new IOException("Unexpected response code: " + response.code());
                 }
             }
-        } while (!found);
-        return new String[]{stripped, gameVersion};
+        } while (true);
     }
 }
