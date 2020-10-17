@@ -100,38 +100,39 @@ public class AssetsUpdater {
     }
 
     private static void performDDragonUpdate() {
+        boolean success = true;
+
         // Download all summoner spells images and write them to PNG files
-        SummonerSpells spells = SummonerSpells.get();
-        for (SummonerSpell spell : spells) {
+        for (SummonerSpell spell : SummonerSpells.get()) {
             try {
                 Path path = Paths.get(IMG_FOLDER_PATH + "icon/spell/" + spell.getId() + ".png");
-                Files.createDirectories(path.getParent());
-                try (OutputStream os = Files.newOutputStream(path)) {
-                    ImageIO.write(spell.getImage().get(), "png", os);
-                }
+                writeImageToPngFile(spell.getImage().get(), path);
             } catch (IOException e) {
-                LOGGER.error(e.getMessage(), e);
+                LOGGER.error("An error occurred while writing to the PNG file.", e);
+                success = false;
             }
         }
 
         // Download all champion icons and write them to PNG files
-        Champions allChampions = Champions.get();
-        for (Champion champion : allChampions) {
+        for (Champion champion : Champions.get()) {
             try {
                 Path path = Paths.get(IMG_FOLDER_PATH + "icon/champion/icon_" + champion.getKey() + ".png");
-                Files.createDirectories(path.getParent());
-                try (OutputStream os = Files.newOutputStream(path)) {
-                    ImageIO.write(champion.getImage().get(), "png", os);
-                }
+                writeImageToPngFile(champion.getImage().get(), path);
             } catch (IOException e) {
-                LOGGER.error(e.getMessage(), e);
+                LOGGER.error("An error occurred while writing to the PNG file.", e);
+                success = false;
             }
         }
 
-        // Update latest patch in config
-        String latestVersion = Versions.get().get(0);
-        SettingsManager.getManager().updateValue("debug.ddragonPatch",
-                ConfigValueFactory.fromAnyRef(latestVersion));
+        if (success) {
+            LOGGER.debug("Updating the DDragon patch in config...");
+            String latestVersion = Versions.get().get(0);
+            SettingsManager.getManager().updateValue("debug.ddragonPatch",
+                    ConfigValueFactory.fromAnyRef(latestVersion));
+            LOGGER.debug("DDragon assets update completed.");
+        } else {
+            LOGGER.info("DDragon assets update did not fully succeed. We will retry updating on the next startup.");
+        }
     }
 
     private static void performCDragonUpdate(OkHttpClient client, String latestCDragonPatch, String localCDragonPatch) {
@@ -187,13 +188,12 @@ public class AssetsUpdater {
         }
 
         if (success) {
-            LOGGER.debug("Updating the latest patch in config...");
-            // Update latest patch in config
+            LOGGER.debug("Updating the CDragon patch in config...");
             SettingsManager.getManager().updateValue("debug.cdragonPatch",
                     ConfigValueFactory.fromAnyRef(latestCDragonPatch));
             LOGGER.info("CDragon assets update completed.");
         } else {
-            LOGGER.info("CDragon assets update did not fully succeed. A new try will take place on the next startup.");
+            LOGGER.info("CDragon assets update did not fully succeed. We will retry updating on the next startup.");
         }
     }
 
@@ -246,6 +246,21 @@ public class AssetsUpdater {
                 throw new IOException("Unexpected HTTP response code: " + response.code());
             }
         }
+    }
+
+    /**
+     * Writes a provided {@link BufferedImage} into the file at the provided {@link Path}, creating parent directories
+     * if they do not exist.
+     *
+     * @param img  The {@link BufferedImage}.
+     * @param path The {@link Path} at which the file will be written to.
+     * @throws IOException if parent directories could not all be created, if an {@link OutputStream} could not be
+     *                     opened at {@code path}, or if an error occurs while writing into the file.
+     */
+    private static void writeImageToPngFile(BufferedImage img, Path path) throws IOException {
+        Files.createDirectories(path.getParent());
+        OutputStream os = Files.newOutputStream(path);
+        ImageIO.write(img, "png", os);
     }
 
     /**
