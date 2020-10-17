@@ -138,6 +138,8 @@ public class AssetsUpdater {
         Champions allChampions = Champions.get();
         SearchableList<Patch> patchList = Patches.named(localCDragonPatch).get();
         DateTime localPatchReleaseTime;
+        boolean success = true;
+
         // if (patchList.size() > 0) {
         if (patchList.size() > 0 && patchList.get(0).getStartTime() != null) { // hack for not-empty patchList with invalid name
             localPatchReleaseTime = patchList.get(0).getStartTime().withZone(DateTimeZone.UTC);
@@ -153,6 +155,7 @@ public class AssetsUpdater {
             downloadPngIfModified(client, localPatchReleaseTime, url, path);
         } catch (IOException e) {
             LOGGER.error("Error downloading PNG file if modified.", e);
+            success = false;
         }
 
         // Download every champion's centered splash art and write them to PNG files
@@ -165,26 +168,33 @@ public class AssetsUpdater {
                 downloadPngIfModified(client, localPatchReleaseTime, url, path);
             } catch (IOException e) {
                 LOGGER.error("Error downloading PNG file if modified.", e);
+                success = false;
             }
         }
 
         // Download every champion tile and write them to PNG files
         for (Champion champion : allChampions) {
-            String championKey = champion.getKey();
             url = "https://raw.communitydragon.org/" + latestCDragonPatch +
                     "/plugins/rcp-be-lol-game-data/global/default/v1/champion-tiles/" +
                     champion.getId() + "/" + champion.getId() + "000.jpg";
-            path = Paths.get(IMG_FOLDER_PATH + "tile/" + championKey + ".png");
+            path = Paths.get(IMG_FOLDER_PATH + "tile/" + champion.getKey() + ".png");
             try {
                 downloadPngIfModified(client, localPatchReleaseTime, url, path);
             } catch (IOException e) {
                 LOGGER.error("Error downloading PNG file if modified.", e);
+                success = false;
             }
         }
 
-        // Update latest patch in config
-        SettingsManager.getManager().updateValue("debug.cdragonPatch",
-                ConfigValueFactory.fromAnyRef(latestCDragonPatch));
+        if (success) {
+            LOGGER.debug("Updating the latest patch in config...");
+            // Update latest patch in config
+            SettingsManager.getManager().updateValue("debug.cdragonPatch",
+                    ConfigValueFactory.fromAnyRef(latestCDragonPatch));
+            LOGGER.info("CDragon assets update completed.");
+        } else {
+            LOGGER.info("CDragon assets update did not fully succeed. A new try will take place on the next startup.");
+        }
     }
 
     /**
