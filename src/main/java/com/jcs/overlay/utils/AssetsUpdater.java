@@ -8,6 +8,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
@@ -16,9 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,6 +38,9 @@ public class AssetsUpdater {
         throw new UnsupportedOperationException("Utility class");
     }
 
+    /**
+     * Updates DDragon assets in {@link #IMG_FOLDER_PATH}.
+     */
     public static void updateDDragonAssets() {
         LOGGER.info("Checking for updated DDragon assets...");
         if (checkForNewDDragonPatch()) {
@@ -47,6 +51,9 @@ public class AssetsUpdater {
         }
     }
 
+    /**
+     * Updates CDragon assets in {@link #IMG_FOLDER_PATH}.
+     */
     public static void updateCDragonAssets() {
         LOGGER.info("Checking for a CDragon assets update...");
         String latestGamePatch = Patches.get().get(0).getName();
@@ -64,14 +71,15 @@ public class AssetsUpdater {
                 LOGGER.error("Could not retrieve the latest CDragon version.", e);
                 return;
             }
+
             if (latestGamePatch.equals(latestCDragonVersion)) {
                 LOGGER.info("Updated assets are available! Updating.");
                 performCDragonUpdate(client, latestCDragonVersion, localCDragonPatch);
-                LOGGER.info("CDragon assets update has been successfully completed.");
             } else {
                 LOGGER.warn("Updated assets for patch {} are not available yet. " +
                         "Overlay will check again on next startup.", latestGamePatch);
             }
+
             // Shutdown our OkHttp client
             client.dispatcher().executorService().shutdown();
             client.connectionPool().evictAll();
@@ -134,38 +142,17 @@ public class AssetsUpdater {
         if (patchList.size() > 0 && patchList.get(0).getStartTime() != null) { // hack for not-empty patchList with invalid name
             localPatchReleaseTime = patchList.get(0).getStartTime().withZone(DateTimeZone.UTC);
         } else {
-            localPatchReleaseTime = null;
+            localPatchReleaseTime = null; // localCDragonPatch is not a valid patch
         }
 
         // Download the generic champion icon and write it to a PNG file
         String url = "https://raw.communitydragon.org/" + latestCDragonPatch +
                 "/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/-1.png";
-        Request.Builder builder = new Request.Builder().url(url);
-        Request headRequest = builder.head().build();
-        LOGGER.info("Making HEAD request to " + url);
-        try (Response res = client.newCall(headRequest).execute()) {
-            DateTime lastModifiedTime = RFC1123_FORMATTER.parseDateTime(res.header("Last-Modified"));
-            if (localPatchReleaseTime == null || lastModifiedTime.isAfter(localPatchReleaseTime)) {
-                Request getRequest = builder.get().build();
-                LOGGER.info("Making GET request to " + url);
-                try (Response response = client.newCall(getRequest).execute()) {
-                    ResponseBody body = response.body();
-                    assert body != null; // Body is non-null as it comes from Call#execute
-                    if (response.code() == 200) {
-                        Path path = Paths.get(IMG_FOLDER_PATH, "icon/champion/icon_None.png");
-                        Files.createDirectories(path.getParent());
-                        try (InputStream is = body.byteStream();
-                             OutputStream os = Files.newOutputStream(path)) {
-                            BufferedImage img = ImageIO.read(is);
-                            ImageIO.write(img, "png", os);
-                        }
-                    }
-                } catch (IOException e) {
-                    LOGGER.error(e.getMessage(), e);
-                }
-            }
+        Path path = Paths.get(IMG_FOLDER_PATH, "icon/champion/icon_None.png");
+        try {
+            downloadPngIfModified(client, localPatchReleaseTime, url, path);
         } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
+            LOGGER.error("Error downloading PNG file if modified.", e);
         }
 
         // Download every champion's centered splash art and write them to PNG files
@@ -173,32 +160,11 @@ public class AssetsUpdater {
             url = "https://raw.communitydragon.org/" + latestCDragonPatch +
                     "/plugins/rcp-be-lol-game-data/global/default/v1/champion-splashes/" +
                     champion.getId() + "/" + champion.getId() + "000.jpg";
-            builder = new Request.Builder().url(url);
-            headRequest = builder.head().build();
-            LOGGER.info("Making HEAD request to " + url);
-            try (Response res = client.newCall(headRequest).execute()) {
-                DateTime lastModifiedTime = RFC1123_FORMATTER.parseDateTime(res.header("Last-Modified"));
-                if (localPatchReleaseTime == null || lastModifiedTime.isAfter(localPatchReleaseTime)) {
-                    Request getRequest = builder.get().build();
-                    LOGGER.info("Making GET request to " + url);
-                    try (Response response = client.newCall(getRequest).execute()) {
-                        ResponseBody body = response.body();
-                        assert body != null; // Body is non-null as it comes from Call#execute
-                        if (response.code() == 200) {
-                            Path path = Paths.get(IMG_FOLDER_PATH + "splash/" + champion.getKey() + ".png");
-                            Files.createDirectories(path.getParent());
-                            try (InputStream is = body.byteStream();
-                                 OutputStream os = Files.newOutputStream(path)) {
-                                BufferedImage img = ImageIO.read(is);
-                                ImageIO.write(img, "png", os);
-                            }
-                        }
-                    } catch (IOException e) {
-                        LOGGER.error(e.getMessage(), e);
-                    }
-                }
+            path = Paths.get(IMG_FOLDER_PATH + "splash/" + champion.getKey() + ".png");
+            try {
+                downloadPngIfModified(client, localPatchReleaseTime, url, path);
             } catch (IOException e) {
-                LOGGER.error(e.getMessage(), e);
+                LOGGER.error("Error downloading PNG file if modified.", e);
             }
         }
 
@@ -208,38 +174,101 @@ public class AssetsUpdater {
             url = "https://raw.communitydragon.org/" + latestCDragonPatch +
                     "/plugins/rcp-be-lol-game-data/global/default/v1/champion-tiles/" +
                     champion.getId() + "/" + champion.getId() + "000.jpg";
-            builder = new Request.Builder().url(url);
-            headRequest = builder.head().build();
-            LOGGER.info("Making HEAD request to " + url);
-            try (Response res = client.newCall(headRequest).execute()) {
-                DateTime lastModifiedTime = RFC1123_FORMATTER.parseDateTime(res.header("Last-Modified"));
-                if (localPatchReleaseTime == null || lastModifiedTime.isAfter(localPatchReleaseTime)) {
-                    Request getRequest = builder.get().build();
-                    LOGGER.info("Making GET request to " + url);
-                    try (Response response = client.newCall(getRequest).execute()) {
-                        ResponseBody body = response.body();
-                        assert body != null; // Body is non-null as it comes from Call#execute
-                        if (response.code() == 200) {
-                            Path path = Paths.get(IMG_FOLDER_PATH + "tile/" + championKey + ".png");
-                            Files.createDirectories(path.getParent());
-                            try (InputStream is = body.byteStream();
-                                 OutputStream os = Files.newOutputStream(path)) {
-                                BufferedImage img = ImageIO.read(is);
-                                ImageIO.write(img, "png", os);
-                            }
-                        }
-                    } catch (IOException e) {
-                        LOGGER.error(e.getMessage(), e);
-                    }
-                }
-            } catch (Exception e) {
-                LOGGER.error(e.getMessage(), e);
+            path = Paths.get(IMG_FOLDER_PATH + "tile/" + championKey + ".png");
+            try {
+                downloadPngIfModified(client, localPatchReleaseTime, url, path);
+            } catch (IOException e) {
+                LOGGER.error("Error downloading PNG file if modified.", e);
             }
         }
 
         // Update latest patch in config
         SettingsManager.getManager().updateValue("debug.cdragonPatch",
                 ConfigValueFactory.fromAnyRef(latestCDragonPatch));
+    }
+
+    /**
+     * Checks if the file located at {@code url} has been modified since a provided {@link DateTime} and downloads it to
+     * the provided {@link Path} using an {@link OkHttpClient}.
+     *
+     * @param client the {@link OkHttpClient} to be used for sending requests.
+     * @param since  a {@link DateTime} to be checked against the last modified time of the file.
+     * @param url    the URL to the file.
+     * @param path   a {@link Path} to where the PNG file should be saved.
+     */
+    private static void downloadPngIfModified(OkHttpClient client,
+                                              @Nullable DateTime since,
+                                              String url,
+                                              Path path) throws IOException {
+        if (since != null) {
+            DateTime lastModifiedTime = getLastModifiedTimeForURL(client, url);
+            if (lastModifiedTime.isAfter(since)) {
+                try (ResponseBody body = getResponseBodyForURL(client, url);
+                     ImageInputStream iis = ImageIO.createImageInputStream(body.byteStream())) {
+                    writeImageToPngFile(iis, path);
+                }
+            }
+        } else {
+            try (ResponseBody body = getResponseBodyForURL(client, url);
+                 ImageInputStream iis = ImageIO.createImageInputStream(body.byteStream())) {
+                writeImageToPngFile(iis, path);
+            }
+        }
+    }
+
+    /**
+     * GETs the {@link ResponseBody} for a specified URL. {@code ResponseBodies} must be closed.
+     *
+     * @param client the {@link OkHttpClient} to be used for sending the request.
+     * @param url    the URL to send the request to.
+     * @return The {@link ResponseBody} of the GET request. Call {@link ResponseBody#close} when you are done.
+     * @throws IOException in case the request fails.
+     */
+    private static ResponseBody getResponseBodyForURL(OkHttpClient client, String url) throws IOException {
+        Request getRequest = new Request.Builder().url(url).build();
+        LOGGER.info("Making GET request to " + url);
+        try (Response response = client.newCall(getRequest).execute()) {
+            if (response.code() == 200) {
+                ResponseBody body = response.body();
+                assert body != null; // Body is non-null as it comes from Call#execute
+                return body;
+            } else {
+                throw new IOException("Unexpected HTTP response code: " + response.code());
+            }
+        }
+    }
+
+    /**
+     * Writes the {@link ImageInputStream} of an image into the file at the provided {@link Path}, creating parent
+     * directories if they do not exist.
+     *
+     * @param iis  The {@link ImageInputStream}. It will not be closed by this method.
+     * @param path The {@link Path} at which the file will be written to.
+     * @throws IOException if parent directories could not all be created, if an {@link OutputStream} could not be
+     *                     opened at {@code path}, or if an error occurs while reading from {@code iis}/writing
+     *                     into the file.
+     */
+    private static void writeImageToPngFile(ImageInputStream iis, Path path) throws IOException {
+        Files.createDirectories(path.getParent());
+        OutputStream os = Files.newOutputStream(path);
+        BufferedImage img = ImageIO.read(iis);
+        ImageIO.write(img, "png", os);
+    }
+
+    /**
+     * Gets the last modified time of the content located at {@code url}.
+     *
+     * @param client the {@link OkHttpClient} to be used for sending the request.
+     * @param url    the URL to the content.
+     * @return a {@link DateTime} holding the last modified time.
+     * @throws IOException if the HTTP request fails.
+     */
+    private static DateTime getLastModifiedTimeForURL(OkHttpClient client, String url) throws IOException {
+        Request req = new Request.Builder().url(url).head().build();
+        LOGGER.info("Making HEAD request to " + url);
+        try (Response res = client.newCall(req).execute()) {
+            return RFC1123_FORMATTER.parseDateTime(res.header("Last-Modified"));
+        }
     }
 
     /**
