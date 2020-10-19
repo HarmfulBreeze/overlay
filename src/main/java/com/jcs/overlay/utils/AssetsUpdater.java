@@ -204,11 +204,11 @@ public class AssetsUpdater {
     }
 
     /**
-     * Checks if the file located at {@code url} has been modified since a provided {@link DateTime} and downloads it to
-     * the provided {@link Path} using an {@link OkHttpClient}.
+     * Checks if the file located at {@code url} has been modified since a provided {@link ZonedDateTime} and downloads
+     * it to the provided {@link Path} using an {@link OkHttpClient}.
      *
      * @param client the {@link OkHttpClient} to be used for sending requests.
-     * @param since  a {@link DateTime} to be checked against the last modified time of the file.
+     * @param since  a {@link ZonedDateTime} to be checked against the last modified time of the file.
      * @param url    the URL to the file.
      * @param path   a {@link Path} to where the PNG file should be saved.
      */
@@ -289,7 +289,8 @@ public class AssetsUpdater {
      *
      * @param client the {@link OkHttpClient} to be used for sending the request.
      * @param url    the URL to the content.
-     * @return a {@link DateTime} holding the last modified time.
+     * @return a {@link ZonedDateTime} holding the last modified time, or {@code null} if there is no
+     * {@code Last-Modified} header in the response.
      * @throws IOException if the HTTP request fails.
      */
     private static ZonedDateTime getLastModifiedTimeForURL(OkHttpClient client, String url) throws IOException {
