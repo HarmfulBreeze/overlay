@@ -1,5 +1,6 @@
 package com.jcs.overlay.utils;
 
+import com.merakianalytics.orianna.types.common.OriannaException;
 import com.merakianalytics.orianna.types.core.searchable.SearchableList;
 import com.merakianalytics.orianna.types.core.staticdata.*;
 import com.typesafe.config.ConfigValueFactory;
@@ -107,9 +108,20 @@ public class AssetsUpdater {
 
         // Download all summoner spells images and write them to PNG files
         for (SummonerSpell spell : SummonerSpells.get()) {
+            BufferedImage spellImg;
+            try {
+                spellImg = spell.getImage().get();
+                if (spellImg == null) {
+                    throw new NullPointerException("spellImg is null!");
+                }
+            } catch (OriannaException | NullPointerException e) {
+                LOGGER.error("Could not get the image of summoner spell " + spell.getName(), e);
+                success = false;
+                continue;
+            }
             try {
                 Path path = Paths.get(IMG_FOLDER_PATH + "icon/spell/" + spell.getId() + ".png");
-                writeImageToPngFile(spell.getImage().get(), path);
+                writeImageToPngFile(spellImg, path);
             } catch (IOException e) {
                 LOGGER.error("An error occurred while writing to the PNG file.", e);
                 success = false;
@@ -118,9 +130,20 @@ public class AssetsUpdater {
 
         // Download all champion icons and write them to PNG files
         for (Champion champion : Champions.get()) {
+            BufferedImage championImg;
+            try {
+                championImg = champion.getImage().get();
+                if (championImg == null) {
+                    throw new NullPointerException("championImg is null!");
+                }
+            } catch (OriannaException e) {
+                LOGGER.error("Could not get the image of " + champion.getName(), e);
+                success = false;
+                continue;
+            }
             try {
                 Path path = Paths.get(IMG_FOLDER_PATH + "icon/champion/icon_" + champion.getKey() + ".png");
-                writeImageToPngFile(champion.getImage().get(), path);
+                writeImageToPngFile(championImg, path);
             } catch (IOException e) {
                 LOGGER.error("An error occurred while writing to the PNG file.", e);
                 success = false;
@@ -256,12 +279,12 @@ public class AssetsUpdater {
      * Writes a provided {@link BufferedImage} into the file at the provided {@link Path}, creating parent directories
      * if they do not exist.
      *
-     * @param img  The {@link BufferedImage}.
+     * @param img  The {@link BufferedImage}, cannot be null.
      * @param path The {@link Path} at which the file will be written to.
      * @throws IOException if parent directories could not all be created, if an {@link OutputStream} could not be
      *                     opened at {@code path}, or if an error occurs while writing into the file.
      */
-    private static void writeImageToPngFile(BufferedImage img, Path path) throws IOException {
+    private static void writeImageToPngFile(@NotNull BufferedImage img, Path path) throws IOException {
         Files.createDirectories(path.getParent());
         OutputStream os = Files.newOutputStream(path);
         ImageIO.write(img, "png", os);
@@ -293,6 +316,7 @@ public class AssetsUpdater {
      * {@code Last-Modified} header in the response.
      * @throws IOException if the HTTP request fails.
      */
+    @Nullable
     private static ZonedDateTime getLastModifiedTimeForURL(OkHttpClient client, String url) throws IOException {
         Request req = new Request.Builder().url(url).head().build();
         LOGGER.info("Making HEAD request to " + url);
