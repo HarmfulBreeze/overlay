@@ -231,7 +231,8 @@ public class AssetsUpdater {
      * it to the provided {@link Path} using an {@link OkHttpClient}.
      *
      * @param client the {@link OkHttpClient} to be used for sending requests.
-     * @param since  a {@link ZonedDateTime} to be checked against the last modified time of the file.
+     * @param since  a {@link ZonedDateTime} to be checked against the last modified time of the file. If null, the file
+     *               will be downloaded without checking the last modification time.
      * @param url    the URL to the file.
      * @param path   a {@link Path} to where the PNG file should be saved.
      */
