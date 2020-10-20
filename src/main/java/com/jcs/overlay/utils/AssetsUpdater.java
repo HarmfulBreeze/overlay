@@ -111,39 +111,15 @@ public class AssetsUpdater {
             BufferedImage spellImg;
             try {
                 spellImg = spell.getImage().get();
-                if (spellImg == null) {
+                if (spellImg != null) {
+                    Path path = Paths.get(IMG_FOLDER_PATH + "icon/spell/" + spell.getId() + ".png");
+                    writeImageToPngFile(spellImg, path);
+                } else {
                     throw new NullPointerException("spellImg is null!");
                 }
             } catch (OriannaException | NullPointerException e) {
                 LOGGER.error("Could not get the image of summoner spell " + spell.getName(), e);
                 success = false;
-                continue;
-            }
-            try {
-                Path path = Paths.get(IMG_FOLDER_PATH + "icon/spell/" + spell.getId() + ".png");
-                writeImageToPngFile(spellImg, path);
-            } catch (IOException e) {
-                LOGGER.error("An error occurred while writing to the PNG file.", e);
-                success = false;
-            }
-        }
-
-        // Download all champion icons and write them to PNG files
-        for (Champion champion : Champions.get()) {
-            BufferedImage championImg;
-            try {
-                championImg = champion.getImage().get();
-                if (championImg == null) {
-                    throw new NullPointerException("championImg is null!");
-                }
-            } catch (OriannaException e) {
-                LOGGER.error("Could not get the image of " + champion.getName(), e);
-                success = false;
-                continue;
-            }
-            try {
-                Path path = Paths.get(IMG_FOLDER_PATH + "icon/champion/icon_" + champion.getKey() + ".png");
-                writeImageToPngFile(championImg, path);
             } catch (IOException e) {
                 LOGGER.error("An error occurred while writing to the PNG file.", e);
                 success = false;
