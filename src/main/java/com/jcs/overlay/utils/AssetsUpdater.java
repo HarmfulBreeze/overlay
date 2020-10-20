@@ -131,7 +131,7 @@ public class AssetsUpdater {
             String latestVersion = Versions.get().get(0);
             SettingsManager.getManager().updateValue("debug.ddragonPatch",
                     ConfigValueFactory.fromAnyRef(latestVersion));
-            LOGGER.debug("DDragon assets update completed.");
+            LOGGER.info("DDragon assets update completed.");
         } else {
             LOGGER.info("DDragon assets update did not fully succeed. We will retry updating on the next startup.");
         }
@@ -240,7 +240,7 @@ public class AssetsUpdater {
      */
     private static byte[] getResponseBodyBytesForURL(OkHttpClient client, String url) throws IOException {
         Request getRequest = new Request.Builder().url(url).build();
-        LOGGER.info("Making GET request to " + url);
+        LOGGER.debug("Making GET request to " + url);
         try (Response response = client.newCall(getRequest).execute()) {
             if (response.code() == 200) {
                 ResponseBody body = response.body();
@@ -296,7 +296,7 @@ public class AssetsUpdater {
     @Nullable
     private static ZonedDateTime getLastModifiedTimeForURL(OkHttpClient client, String url) throws IOException {
         Request req = new Request.Builder().url(url).head().build();
-        LOGGER.info("Making HEAD request to " + url);
+        LOGGER.debug("Making HEAD request to " + url);
         try (Response res = client.newCall(req).execute()) {
             String header = res.header("Last-Modified");
             if (header != null) {

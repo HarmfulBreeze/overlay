@@ -86,6 +86,7 @@ dependencies {
     // SLF4J
     implementation("org.slf4j", "slf4j-api", "1.8.0-beta4")
     implementation("org.slf4j", "slf4j-log4j12", "1.8.0-beta4")
+    implementation("uk.org.lidalia", "sysout-over-slf4j", "1.0.2")
 
     // Other
     compileOnly("org.jetbrains", "annotations", "+")

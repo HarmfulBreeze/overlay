@@ -127,3 +127,6 @@ gradle-app.setting
 apikey.txt
 latestPatch.txt
 /config.conf
+
+### Logs folder
+logs

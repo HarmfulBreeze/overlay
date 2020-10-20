@@ -12,6 +12,7 @@ import org.cef.CefApp;
 import org.jetbrains.annotations.Contract;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.org.lidalia.sysoutslf4j.context.SysOutOverSLF4J;
 
 import java.io.IOException;
 import java.net.URI;
@@ -41,6 +42,10 @@ public class App {
     }
 
     private static void init() {
+        // Redirect System.out and System.err to SLF4J (useful for CEF)
+        SysOutOverSLF4J.registerLoggingSystem("org.slf4j.log4j12");
+        SysOutOverSLF4J.sendSystemOutAndErrToSLF4J();
+        
         // Orianna setup & pre-caching
         Orianna.loadConfiguration("config.json");
         Champions.get().load();
