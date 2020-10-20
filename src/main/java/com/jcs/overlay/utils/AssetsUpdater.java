@@ -300,7 +300,7 @@ public class AssetsUpdater {
      *                     opened at {@code path}, or if an error occurs while reading from {@code iis}/writing
      *                     into the file.
      */
-    private static void writeImageToPngFile(InputStream is, Path path) throws IOException {
+    private static void writeImageToPngFile(@NotNull InputStream is, Path path) throws IOException {
         Files.createDirectories(path.getParent());
         OutputStream os = Files.newOutputStream(path);
         BufferedImage img = ImageIO.read(is);
