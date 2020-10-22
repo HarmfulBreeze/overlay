@@ -1,7 +1,6 @@
 package com.jcs.overlay.utils;
 
 import com.merakianalytics.orianna.types.common.OriannaException;
-import com.merakianalytics.orianna.types.core.searchable.SearchableList;
 import com.merakianalytics.orianna.types.core.staticdata.*;
 import com.typesafe.config.ConfigValueFactory;
 import okhttp3.OkHttpClient;
@@ -138,14 +137,13 @@ public class AssetsUpdater {
     }
 
     private static void performCDragonUpdate(OkHttpClient client, String latestCDragonPatch, String localCDragonPatch) {
-        Champions allChampions = Champions.get();
-        SearchableList<Patch> patchList = Patches.named(localCDragonPatch).get();
-        ZonedDateTime localPatchReleaseTime;
         boolean success = true;
+        Champions allChampions = Champions.get();
+        Patch gamePatch = Patch.named(localCDragonPatch).get();
+        ZonedDateTime localPatchReleaseTime;
 
-        // if (patchList.size() > 0) {
-        if (patchList.size() > 0 && patchList.get(0).getStartTime() != null) { // hack for not-empty patchList with invalid name
-            DateTime jodaUTCStartTime = patchList.get(0).getStartTime().withZone(DateTimeZone.UTC);
+        if (gamePatch != null) {
+            DateTime jodaUTCStartTime = gamePatch.getStartTime().withZone(DateTimeZone.UTC);
             Instant instant = Instant.ofEpochMilli(jodaUTCStartTime.getMillis());
             ZoneId zoneId = ZoneId.of(jodaUTCStartTime.getZone().getID(), ZoneId.SHORT_IDS);
             localPatchReleaseTime = ZonedDateTime.ofInstant(instant, zoneId);
