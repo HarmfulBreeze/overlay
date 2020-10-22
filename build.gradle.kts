@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.jcs"
-version = "1.4.2-SNAPSHOT"
+version = "1.5.0-SNAPSHOT"
 
 configurations {
     create("implementationW32")
