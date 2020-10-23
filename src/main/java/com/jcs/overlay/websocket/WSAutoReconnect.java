@@ -1,6 +1,5 @@
 package com.jcs.overlay.websocket;
 
-import com.jcs.overlay.utils.LockfileMonitor;
 import org.java_websocket.client.WebSocketClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +24,6 @@ public class WSAutoReconnect implements Runnable {
                     if (this.wsClient.isOpen()) {
                         stopCount = 1;
                     } else {
-                        LockfileMonitor.getInstance().setLeagueStarted(false);
                         LOGGER.error("Could not connect, next retry in 5 seconds...");
                         stopCount++;
                         Thread.sleep(5000);

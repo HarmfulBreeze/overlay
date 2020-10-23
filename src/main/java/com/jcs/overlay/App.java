@@ -45,7 +45,7 @@ public class App {
         // Redirect System.out and System.err to SLF4J (useful for CEF)
         SysOutOverSLF4J.registerLoggingSystem("org.slf4j.log4j12");
         SysOutOverSLF4J.sendSystemOutAndErrToSLF4J();
-        
+
         // Orianna setup & pre-caching
         Orianna.loadConfiguration("config.json");
         Champions.get().load();
@@ -155,6 +155,9 @@ public class App {
     }
 
     public static void onLeagueStart(String lockfileContent) {
+        if (autoReconnect != null) {
+            onLeagueStop(); // fix for client closed abruptly
+        }
         LOGGER.debug("Client launched!");
 
         String[] parts = Utils.parseLockfile(lockfileContent);
@@ -182,16 +185,14 @@ public class App {
 
     public static void onLeagueStop() {
         // Stop WSAutoReconnect
-        if (autoReconnect != null) {
-            autoReconnect.stop();
-            try {
-                autoReconnectThread.join();
-            } catch (InterruptedException e) {
-                LOGGER.error("Exception caught: ", e);
-            }
-            autoReconnect = null;
-            autoReconnectThread = null;
+        autoReconnect.stop();
+        try {
+            autoReconnectThread.join();
+        } catch (InterruptedException e) {
+            LOGGER.error("Exception caught: ", e);
         }
+        autoReconnect = null;
+        autoReconnectThread = null;
         LOGGER.debug("Client closed.");
     }
 
