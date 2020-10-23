@@ -3,7 +3,9 @@ package com.jcs.overlay.websocket.messages.J2W.enums;
 import com.squareup.moshi.Json;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 public enum TimerStyle {
@@ -30,13 +32,12 @@ public enum TimerStyle {
         }
     }
 
+    @Nullable
     public static TimerStyle getTimerStyle(String styleName) {
-        for (TimerStyle style : TimerStyle.values()) {
-            if (style.styleName.equals(styleName)) {
-                return style;
-            }
-        }
-        return null;
+        return Arrays.stream(TimerStyle.values())
+                .filter(ts -> ts.styleName.equals(styleName))
+                .findFirst()
+                .orElse(null);
     }
 
     @Override

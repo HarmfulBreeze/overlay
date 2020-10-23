@@ -5,6 +5,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 public enum SummonerSpellsDisplayStrategy {
@@ -31,12 +32,10 @@ public enum SummonerSpellsDisplayStrategy {
 
     @Nullable
     public static SummonerSpellsDisplayStrategy getStrategy(String strategyName) {
-        for (SummonerSpellsDisplayStrategy s : SummonerSpellsDisplayStrategy.values()) {
-            if (s.strategyName.equals(strategyName)) {
-                return s;
-            }
-        }
-        return null;
+        return Arrays.stream(SummonerSpellsDisplayStrategy.values())
+                .filter(s -> s.strategyName.equals(strategyName))
+                .findFirst()
+                .orElse(null);
     }
 
     @Override
