@@ -6,8 +6,10 @@ import com.jcs.overlay.utils.Uint64Adapter;
 import com.jcs.overlay.utils.Utils;
 import com.jcs.overlay.websocket.holders.Bans;
 import com.jcs.overlay.websocket.holders.Player;
+import com.jcs.overlay.websocket.messages.C2J.champselect.Action;
+import com.jcs.overlay.websocket.messages.C2J.champselect.Session;
+import com.jcs.overlay.websocket.messages.C2J.champselect.SessionMessage;
 import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
-import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
 import com.jcs.overlay.websocket.messages.J2W.*;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
@@ -120,7 +122,7 @@ public class WSClient extends WebSocketClient {
         int blueCounter = 0;
         int redCounter = 5;
         for (Player player : playerList) {
-            int teamId = player.getPlayerSelection().getTeam();
+            int teamId = player.getTeam();
             if (teamId == 2) {
                 player.setAdjustedCellId(redCounter);
                 redCounter++;
@@ -215,22 +217,14 @@ public class WSClient extends WebSocketClient {
         }
     }
 
-    private void preHandleChampSelectUpdate(SessionMessage jsonMessage) {
-        Session session = jsonMessage.getSession();
-        if (this.summonerNamesCallId == null) {
-            // Set myTeamIsBlueTeam for the rest of the draft
-            if (session.getMyTeam() != null) {
-                this.myTeamIsBlueTeam = this.isMyTeamBlueTeam(session.getMyTeam());
-            }
-            this.sendUpdateNamesRequest(session);
-            this.updateMessagesQueue.add(session);
-            adjustCellIds(this.playerList);
-        } else if (!this.receivedSummonerNamesUpdate) {
-            LOGGER.debug("Added update message to queue while waiting for names.");
-            this.updateMessagesQueue.add(session);
-        } else {
-            this.handleChampSelectUpdate(session);
-        }
+    /**
+     * Checks if <i>myTeam</i> is blue team (Team 100/Team 1/Order).
+     *
+     * @param myTeam A <i>non-null</i> list of {@link Player} objects from {@link Session#getMyTeam()}.
+     * @return {@code true} if myTeam is blue team, else false.
+     */
+    private static boolean isMyTeamBlueTeam(@NotNull List<Player> myTeam) {
+        return myTeam.get(0).getTeam() == 1;
     }
 
     private void handleChampSelectCreate() {
@@ -277,7 +271,7 @@ public class WSClient extends WebSocketClient {
         for (SummonerIdAndName idAndName : summonerIdsAndNames) {
             Long summonerId = idAndName.getSummonerId();
             String summonerName = idAndName.getDisplayName();
-            this.playerList.stream().filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId))
+            this.playerList.stream().filter(player -> player.getSummonerId().equals(summonerId))
                     .forEach(player -> player.setSummonerName(summonerName));
         }
         this.playerList.forEach(player -> {
@@ -303,161 +297,22 @@ public class WSClient extends WebSocketClient {
         this.receivedSummonerNamesUpdate = true;
     }
 
-    private void handleChampSelectUpdate(final Session session) {
-        boolean isFirstUpdate = this.previousSession == null;
-
-        List<List<Action>> newActions = session.getActions();
-        List<List<Action>> oldActions = null;           // Used for actions
-        List<PlayerSelection> oldPSelections = null;    // Used for summoner spells and trades
-        if (isFirstUpdate) { // First update
-            if (session.isSpectating()) {
-                LOGGER.debug("Currently spectating the game.");
-            } else {
-                LOGGER.debug("Not a spectator!");
+    private void preHandleChampSelectUpdate(SessionMessage jsonMessage) {
+        Session session = jsonMessage.getSession();
+        if (this.summonerNamesCallId == null) {
+            // Set myTeamIsBlueTeam for the rest of the draft
+            if (session.getMyTeam() != null) {
+                this.myTeamIsBlueTeam = isMyTeamBlueTeam(session.getMyTeam());
             }
-        } else { // any other update
-            oldActions = this.previousSession.getActions();
-            oldPSelections = this.getPlayerSelectionList(this.previousSession.getMyTeam(), this.previousSession.getTheirTeam());
+            this.sendUpdateNamesRequest(session);
+            this.updateMessagesQueue.add(session);
+            adjustCellIds(this.playerList);
+        } else if (!this.receivedSummonerNamesUpdate) {
+            LOGGER.debug("Added update message to queue while waiting for names.");
+            this.updateMessagesQueue.add(session);
+        } else {
+            this.handleChampSelectUpdate(session);
         }
-
-        // Update the player list with the new player selections
-        List<PlayerSelection> newPSelections = this.getPlayerSelectionList(session.getMyTeam(), session.getTheirTeam());
-        for (int i = 0; i < newPSelections.size(); i++) {
-            this.playerList.get(i).setPlayerSelection(newPSelections.get(i));
-        }
-
-        // Get the current active action group, if -1 then newActions is null or empty
-        int activeActionGroupIndex = this.getActiveActionGroupIndex(newActions);
-        // Check if there are new actions
-        if (!newActions.equals(oldActions) && activeActionGroupIndex != -1) {
-            // Active action group changed
-            if (isFirstUpdate || activeActionGroupIndex != this.previousActiveActionGroup) {
-                if (!isFirstUpdate) { // first update -> no oldActions
-                    // At least one newly completed action needs to be handled
-                    this.getNewlyCompletedActions(oldActions, newActions).forEach(this::handleStartedOrCompletedAction);
-                }
-                // Handle new active group actions
-                newActions.get(activeActionGroupIndex).forEach(this::handleStartedOrCompletedAction);
-            } else { // Active action group did not change, let's handle action updates
-                List<Action> activeActionGroup = newActions.get(activeActionGroupIndex);
-                List<Action> oldActiveActionGroup = oldActions.get(activeActionGroupIndex);
-                if (activeActionGroup.size() != oldActiveActionGroup.size()) {
-                    LOGGER.warn("newActions action group size is different!! might throw a lot");
-                }
-                for (int i = 0; i < activeActionGroup.size(); i++) {
-                    Action updatedAction = activeActionGroup.get(i);
-                    Action oldAction = oldActiveActionGroup.get(i);
-                    // No handling of ten bans reveal
-                    if (updatedAction.getType() == TEN_BANS_REVEAL) {
-                        continue;
-                    }
-                    if (!updatedAction.equals(oldAction)) {
-                        if (updatedAction.getChampionId() != oldAction.getChampionId()) {
-                            Player player = this.getPlayerByCellId(updatedAction.getActorCellId());
-                            if (player != null) {
-                                String championName;
-                                String championKey;
-                                if (updatedAction.getChampionId() != 0) {
-                                    Champion champion = Champion.withId(updatedAction.getChampionId()).get();
-                                    championName = champion.getName();
-                                    championKey = champion.getKey();
-                                } else {
-                                    championName = "None";
-                                    championKey = "None";
-                                }
-                                LOGGER.debug("New champion selected by " + player.getSummonerName() + "! " + championName);
-                                if (updatedAction.getType() == PICK) {
-                                    SetPickIntentMessage msg = new SetPickIntentMessage(player.getAdjustedCellId(), championKey);
-                                    this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg);
-                                }
-                            } else {
-                                LOGGER.error("Unknown player with cellId " + updatedAction.getActorCellId());
-                            }
-                        }
-                        if (updatedAction.isCompleted() != oldAction.isCompleted()) { // Action just completed
-                            this.handleStartedOrCompletedAction(updatedAction);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Handle timer
-        Timer timer = session.getTimer();
-        Timer.Phase timerPhase = timer.getPhase();
-        // TODO: handle unknown phase better
-        if (timerPhase != Timer.Phase.UNKNOWN) { // If phase is known, we can assume that we have info on the timer
-            if (!isFirstUpdate && timerPhase != this.previousSession.getTimer().getPhase()) {
-                LOGGER.debug("New phase: " + timerPhase);
-            }
-
-            // Update timer in webapp
-            UpdateTimerStateMessage updateTimerStateMessage = new UpdateTimerStateMessage(timerPhase, timer.getInternalNowInEpochMs(), timer.getAdjustedTimeLeftInPhase());
-            this.wsServer.broadcastWebappMessage(UpdateTimerStateMessage.class, updateTimerStateMessage);
-        }
-
-        // Setup summoner spells
-        if (isFirstUpdate) {
-            for (Player player : this.playerList) {
-                PlayerSelection ps = player.getPlayerSelection();
-                Long spell1Id = ps.getSpell1Id();
-                Long spell2Id = ps.getSpell2Id();
-                if (spell1Id != 0 && spell2Id != 0) { // If we have info on the enemy team sums
-                    String summonerName = player.getSummonerName();
-                    LOGGER.debug(summonerName + " has summoner spells "
-                            + SummonerSpell.withId(spell1Id.intValue()).get().getName()
-                            + " and " + SummonerSpell.withId(spell2Id.intValue()).get().getName());
-
-                    long adjustedCellId = player.getAdjustedCellId();
-                    SetSummonerSpellsMessage msg1 = new SetSummonerSpellsMessage(adjustedCellId, 1, spell1Id);
-                    SetSummonerSpellsMessage msg2 = new SetSummonerSpellsMessage(adjustedCellId, 2, spell2Id);
-                    this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg1, msg2);
-                }
-            }
-        } else { // Handle summoner spell changes
-            for (int i = 0; i < this.playerList.size(); i++) {
-                PlayerSelection newPs = this.playerList.get(i).getPlayerSelection();
-                PlayerSelection oldPs = oldPSelections.get(i);
-                String summonerName = this.playerList.get(i).getSummonerName();
-                Long newSpell1Id = newPs.getSpell1Id();
-                Long newSpell2Id = newPs.getSpell2Id();
-                long adjustedCellId = this.playerList.get(i).getAdjustedCellId();
-                if (!newSpell1Id.equals(oldPs.getSpell1Id()) && newSpell1Id != 0) {
-                    LOGGER.debug(summonerName + " changed summoner spell 1 to "
-                            + SummonerSpell.withId(newSpell1Id.intValue()).get().getName());
-
-                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 1, newSpell1Id);
-                    this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg);
-                }
-                if (!newSpell2Id.equals(oldPs.getSpell2Id()) && newSpell2Id != 0) {
-                    LOGGER.debug(summonerName + " changed summoner spell 2 to "
-                            + SummonerSpell.withId(newSpell2Id.intValue()).get().getName());
-
-                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 2, newSpell2Id);
-                    this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg);
-                }
-            }
-        }
-
-        // Picks are over, so we need to watch champion trades
-        if (timerPhase == Timer.Phase.FINALIZATION) {
-            assert oldPSelections != null; // Will be non-null for sure as isFirstUpdate = false
-            oldPSelections.addAll(this.previousSession.getMyTeam());
-            oldPSelections.addAll(this.previousSession.getTheirTeam());
-            for (int i = 0; i < this.playerList.size(); i++) {
-                PlayerSelection newPs = this.playerList.get(i).getPlayerSelection();
-                PlayerSelection oldPs = oldPSelections.get(i);
-                long adjustedCellId = this.playerList.get(i).getAdjustedCellId();
-                if (newPs.getChampionId() != oldPs.getChampionId()) {
-                    SetPickIntentMessage msg = new SetPickIntentMessage(adjustedCellId,
-                            Champion.withId(newPs.getChampionId()).get().getKey());
-                    this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg);
-                }
-            }
-        }
-
-        this.previousActiveActionGroup = activeActionGroupIndex;
-        this.previousSession = session;
     }
 
     private void handleChampSelectDelete() {
@@ -578,7 +433,7 @@ public class WSClient extends WebSocketClient {
                     debug.append(summonerName).append(" banned ").append(championName);
 
                     // Add the ban to the holder
-                    int teamId = player.getPlayerSelection().getTeam();
+                    int teamId = player.getTeam();
                     if (this.bans.canAdd(teamId)) {
                         int banId = this.bans.addBan(player, championKey);
 
@@ -742,14 +597,11 @@ public class WSClient extends WebSocketClient {
         StringBuilder builder = new StringBuilder();
         builder.append("[2, \"").append(this.summonerNamesCallId).append("\", \"/lol-summoner/v2/summoner-names\", [");
 
-        List<PlayerSelection> allPlayers = this.getPlayerSelectionList(session.getMyTeam(), session.getTheirTeam());
+        List<Player> allPlayers = this.getAggregatedPlayerList(session.getMyTeam(), session.getTheirTeam());
 
-        for (PlayerSelection player : allPlayers) {
-            Player wrapper = new Player(player);
-            if (this.playerList.stream().noneMatch(plWrapper -> plWrapper.getPlayerSelection().getCellId() == player.getCellId())) {
-                this.playerList.add(wrapper);
-                builder.append(player.getSummonerId()).append(", ");
-            }
+        for (Player player : allPlayers) {
+            this.playerList.add(player);
+            builder.append(player.getSummonerId()).append(", ");
         }
         builder.delete(builder.length() - 2, builder.length()); // Removes the trailing ", "
         builder.append("]]");
@@ -759,14 +611,162 @@ public class WSClient extends WebSocketClient {
         LOGGER.debug("Sent update name request: " + query);
     }
 
-    /**
-     * Checks if <i>myTeam</i> is blue team (Team 100/Team 1/Order).
-     *
-     * @param myTeam A <i>non-null</i> list of {@link PlayerSelection} objects from {@link Session#getMyTeam()}.
-     * @return {@code true} if myTeam is blue team, else false.
-     */
-    private boolean isMyTeamBlueTeam(@NotNull List<PlayerSelection> myTeam) {
-        return myTeam.get(0).getTeam() == 1;
+    private void handleChampSelectUpdate(final Session session) {
+        boolean isFirstUpdate = this.previousSession == null;
+
+        List<List<Action>> newActions = session.getActions();
+        List<List<Action>> oldActions = null;
+        List<Player> oldPlayerList = null;
+        if (isFirstUpdate) { // First update
+            if (session.isSpectating()) {
+                LOGGER.debug("Currently spectating the game.");
+            } else {
+                LOGGER.debug("Not a spectator!");
+            }
+        } else { // any other update
+            oldActions = this.previousSession.getActions();
+            oldPlayerList = this.getAggregatedPlayerList(this.previousSession.getMyTeam(), this.previousSession.getTheirTeam());
+        }
+
+        // Update the player list with the new player selections
+        List<Player> updatedPlayerList = this.getAggregatedPlayerList(session.getMyTeam(), session.getTheirTeam());
+        for (int i = 0; i < updatedPlayerList.size(); i++) {
+            Player updatedP = updatedPlayerList.get(i);
+            Player currentP = this.playerList.get(i);
+            updatedP.setSummonerName(currentP.getSummonerName());
+            updatedP.setAdjustedCellId(currentP.getAdjustedCellId());
+            this.playerList.set(i, updatedP);
+        }
+
+        // Get the current active action group, if -1 then newActions is null or empty
+        int activeActionGroupIndex = this.getActiveActionGroupIndex(newActions);
+        // Check if there are new actions
+        if (!newActions.equals(oldActions) && activeActionGroupIndex != -1) {
+            // Active action group changed
+            if (isFirstUpdate || activeActionGroupIndex != this.previousActiveActionGroup) {
+                if (!isFirstUpdate) { // first update -> no oldActions
+                    // At least one newly completed action needs to be handled
+                    this.getNewlyCompletedActions(oldActions, newActions).forEach(this::handleStartedOrCompletedAction);
+                }
+                // Handle new active group actions
+                newActions.get(activeActionGroupIndex).forEach(this::handleStartedOrCompletedAction);
+            } else { // Active action group did not change, let's handle action updates
+                List<Action> activeActionGroup = newActions.get(activeActionGroupIndex);
+                List<Action> oldActiveActionGroup = oldActions.get(activeActionGroupIndex);
+                if (activeActionGroup.size() != oldActiveActionGroup.size()) {
+                    LOGGER.warn("newActions action group size is different!! might throw a lot");
+                }
+                for (int i = 0; i < activeActionGroup.size(); i++) {
+                    Action updatedAction = activeActionGroup.get(i);
+                    Action oldAction = oldActiveActionGroup.get(i);
+                    // No handling of ten bans reveal
+                    if (updatedAction.getType() == TEN_BANS_REVEAL) {
+                        continue;
+                    }
+                    if (!updatedAction.equals(oldAction)) {
+                        if (updatedAction.getChampionId() != oldAction.getChampionId()) {
+                            Player player = this.getPlayerByCellId(updatedAction.getActorCellId());
+                            if (player != null) {
+                                String championName;
+                                String championKey;
+                                if (updatedAction.getChampionId() != 0) {
+                                    Champion champion = Champion.withId(updatedAction.getChampionId()).get();
+                                    championName = champion.getName();
+                                    championKey = champion.getKey();
+                                } else {
+                                    championName = "None";
+                                    championKey = "None";
+                                }
+                                LOGGER.debug("New champion selected by " + player.getSummonerName() + "! " + championName);
+                                if (updatedAction.getType() == PICK) {
+                                    SetPickIntentMessage msg = new SetPickIntentMessage(player.getAdjustedCellId(), championKey);
+                                    this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg);
+                                }
+                            } else {
+                                LOGGER.error("Unknown player with cellId " + updatedAction.getActorCellId());
+                            }
+                        }
+                        if (updatedAction.isCompleted() != oldAction.isCompleted()) { // Action just completed
+                            this.handleStartedOrCompletedAction(updatedAction);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle timer
+        Timer timer = session.getTimer();
+        Timer.Phase timerPhase = timer.getPhase();
+        // TODO: handle unknown phase better
+        if (timerPhase != Timer.Phase.UNKNOWN) { // If phase is known, we can assume that we have info on the timer
+            if (!isFirstUpdate && timerPhase != this.previousSession.getTimer().getPhase()) {
+                LOGGER.debug("New phase: " + timerPhase);
+            }
+
+            // Update timer in webapp
+            UpdateTimerStateMessage updateTimerStateMessage = new UpdateTimerStateMessage(timerPhase, timer.getInternalNowInEpochMs(), timer.getAdjustedTimeLeftInPhase());
+            this.wsServer.broadcastWebappMessage(UpdateTimerStateMessage.class, updateTimerStateMessage);
+        }
+
+        // Setup summoner spells
+        if (isFirstUpdate) {
+            for (Player player : this.playerList) {
+                Long spell1Id = player.getSpell1Id();
+                Long spell2Id = player.getSpell2Id();
+                if (spell1Id != 0 && spell2Id != 0) { // If we have info on the enemy team sums
+                    String summonerName = player.getSummonerName();
+                    LOGGER.debug(summonerName + " has summoner spells "
+                            + SummonerSpell.withId(spell1Id.intValue()).get().getName()
+                            + " and " + SummonerSpell.withId(spell2Id.intValue()).get().getName());
+
+                    long adjustedCellId = player.getAdjustedCellId();
+                    SetSummonerSpellsMessage msg1 = new SetSummonerSpellsMessage(adjustedCellId, 1, spell1Id);
+                    SetSummonerSpellsMessage msg2 = new SetSummonerSpellsMessage(adjustedCellId, 2, spell2Id);
+                    this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg1, msg2);
+                }
+            }
+        } else { // Handle summoner spell changes
+            for (int i = 0; i < this.playerList.size(); i++) {
+                Player newPlayer = this.playerList.get(i);
+                Player oldPlayer = oldPlayerList.get(i);
+                String summonerName = this.playerList.get(i).getSummonerName();
+                Long newSpell1Id = newPlayer.getSpell1Id();
+                Long newSpell2Id = newPlayer.getSpell2Id();
+                long adjustedCellId = this.playerList.get(i).getAdjustedCellId();
+                if (!newSpell1Id.equals(oldPlayer.getSpell1Id()) && newSpell1Id != 0) {
+                    LOGGER.debug(summonerName + " changed summoner spell 1 to "
+                            + SummonerSpell.withId(newSpell1Id.intValue()).get().getName());
+
+                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 1, newSpell1Id);
+                    this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg);
+                }
+                if (!newSpell2Id.equals(oldPlayer.getSpell2Id()) && newSpell2Id != 0) {
+                    LOGGER.debug(summonerName + " changed summoner spell 2 to "
+                            + SummonerSpell.withId(newSpell2Id.intValue()).get().getName());
+
+                    SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 2, newSpell2Id);
+                    this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg);
+                }
+            }
+        }
+
+        // Picks are over, so we need to watch champion trades
+        if (timerPhase == Timer.Phase.FINALIZATION) {
+            assert oldPlayerList != null; // Will be non-null for sure as isFirstUpdate = false
+            for (int i = 0; i < this.playerList.size(); i++) {
+                Player newPlayer = this.playerList.get(i);
+                Player oldPlayer = oldPlayerList.get(i);
+                long adjustedCellId = this.playerList.get(i).getAdjustedCellId();
+                if (newPlayer.getChampionId() != oldPlayer.getChampionId()) {
+                    SetPickIntentMessage msg = new SetPickIntentMessage(adjustedCellId,
+                            Champion.withId(newPlayer.getChampionId()).get().getKey());
+                    this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg);
+                }
+            }
+        }
+
+        this.previousActiveActionGroup = activeActionGroupIndex;
+        this.previousSession = session;
     }
 
     /**
@@ -782,7 +782,7 @@ public class WSClient extends WebSocketClient {
                 return this.playerList.get((int) cellId);
             } else { // Else we go and find the player with the same cellID with the Stream API
                 Stream<Player> stream = this.playerList.stream();
-                Optional<Player> player = stream.filter(p -> p.getPlayerSelection().getCellId() == cellId).findFirst();
+                Optional<Player> player = stream.filter(p -> p.getCellId() == cellId).findFirst();
                 return player.orElse(null);
             }
         } catch (IndexOutOfBoundsException e) {
@@ -791,14 +791,14 @@ public class WSClient extends WebSocketClient {
     }
 
     /**
-     * Gets all the PlayerSelection from the provided {@link List}s and puts them in the same order as the player list.
+     * Gets all the Player from the provided {@link List}s and puts all blue team players before red team players.
      *
-     * @param myTeam    A {@link List} of {@link PlayerSelection} containing all the selections from {@code myTeam}.
-     * @param theirTeam A {@link List} of {@link PlayerSelection} containing all the selections from {@code theirTeam}.
+     * @param myTeam    A {@link List} of {@link Player} containing all the players from {@code myTeam}.
+     * @param theirTeam A {@link List} of {@link Player} containing all the players from {@code theirTeam}.
      * @return The resulting {@link List}.
      */
-    private List<PlayerSelection> getPlayerSelectionList(List<PlayerSelection> myTeam, List<PlayerSelection> theirTeam) {
-        List<PlayerSelection> psList = new ArrayList<>();
+    private List<Player> getAggregatedPlayerList(List<Player> myTeam, List<Player> theirTeam) {
+        List<Player> psList = new ArrayList<>();
         // Always have blue team before red team
         if (this.myTeamIsBlueTeam) {
             psList.addAll(myTeam);

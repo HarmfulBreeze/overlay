@@ -28,7 +28,7 @@ public class Bans {
      * @throws IndexOutOfBoundsException If the array is already full.
      */
     public int addBan(Player player, String championKey) {
-        int teamId = player.getPlayerSelection().getTeam();
+        int teamId = player.getTeam();
         if (!this.canAdd(teamId)) {
             throw new IndexOutOfBoundsException("Ban array is full!");
         }

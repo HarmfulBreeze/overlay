@@ -1,5 +1,7 @@
 package com.jcs.overlay.websocket.messages.C2J.champselect;
 
+import com.jcs.overlay.websocket.holders.Player;
+
 import java.util.List;
 
 @SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
@@ -12,9 +14,9 @@ public class Session {
     boolean isSpectating;
     long localPlayerCellId;
     int lockedEventIndex; // unk
-    List<PlayerSelection> myTeam;
+    List<Player> myTeam;
     long rerollsRemaining; // uint32
-    List<PlayerSelection> theirTeam;
+    List<Player> theirTeam;
     Timer timer;
     List<TradeContract> trades;
 
@@ -34,11 +36,11 @@ public class Session {
         return this.isSpectating;
     }
 
-    public List<PlayerSelection> getMyTeam() {
+    public List<Player> getMyTeam() {
         return this.myTeam;
     }
 
-    public List<PlayerSelection> getTheirTeam() {
+    public List<Player> getTheirTeam() {
         return this.theirTeam;
     }
 
