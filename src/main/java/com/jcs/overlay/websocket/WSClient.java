@@ -10,7 +10,6 @@ import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
 import com.jcs.overlay.websocket.messages.C2J.champselect.*;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
 import com.jcs.overlay.websocket.messages.J2W.*;
-import com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.TeamNames;
 import com.merakianalytics.orianna.types.core.staticdata.Champion;
 import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpell;
@@ -19,7 +18,6 @@ import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
 import com.squareup.moshi.adapters.EnumJsonAdapter;
-import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.framing.CloseFrame;
@@ -44,8 +42,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.jcs.overlay.websocket.messages.C2J.champselect.Action.ActionType.*;
-import static com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.TeamColors;
-import static com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.WebappConfig;
 
 public class WSClient extends WebSocketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
@@ -247,15 +243,7 @@ public class WSClient extends WebSocketClient {
         this.receivedSummonerNamesUpdate = false;
         this.bans = new Bans();
 
-        Config config = this.settingsManager.getConfig();
-        String team100Name = config.getString("teams.blue.name");
-        String team200Name = config.getString("teams.red.name");
-        List<Integer> team100Color = config.getIntList("teams.blue.rgbColor");
-        List<Integer> team200Color = config.getIntList("teams.red.rgbColor");
-        TeamNames teamNames = new TeamNames(team100Name, team200Name);
-        TeamColors teamColors = new TeamColors(team100Color, team200Color);
-        WebappConfig webappConfig = new WebappConfig();
-        SetupWebappMessage setupMessage = new SetupWebappMessage(teamNames, teamColors, webappConfig);
+        SetupWebappMessage setupMessage = new SetupWebappMessage();
         this.wsServer.broadcastWebappMessage(SetupWebappMessage.class, setupMessage);
 
         List<String> championKeys = new ArrayList<>();
@@ -286,13 +274,11 @@ public class WSClient extends WebSocketClient {
         }
 
         // We update our playerList with the summoner names
-        Optional<Player> playerFound;
         for (SummonerIdAndName idAndName : summonerIdsAndNames) {
             Long summonerId = idAndName.getSummonerId();
-            playerFound = this.playerList.stream()
-                    .filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId))
-                    .findFirst();
-            playerFound.ifPresent(player -> player.setSummonerName(idAndName.getDisplayName()));
+            String summonerName = idAndName.getDisplayName();
+            this.playerList.stream().filter(player -> player.getPlayerSelection().getSummonerId().equals(summonerId))
+                    .forEach(player -> player.setSummonerName(summonerName));
         }
         this.playerList.forEach(player -> {
             if (player.getSummonerName() == null || player.getSummonerName().isEmpty()) {
@@ -310,9 +296,8 @@ public class WSClient extends WebSocketClient {
         this.wsServer.broadcastWebappMessage(PlayerNamesMessage.class, playerNamesMessage);
 
         // And handle the messages waiting in the queue
-        Session session;
-        while ((session = this.updateMessagesQueue.poll()) != null) {
-            this.handleChampSelectUpdate(session);
+        while (!this.updateMessagesQueue.isEmpty()) {
+            this.handleChampSelectUpdate(this.updateMessagesQueue.poll());
         }
         LOGGER.debug("Update messages queue is cleared.");
         this.receivedSummonerNamesUpdate = true;
