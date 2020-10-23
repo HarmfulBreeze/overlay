@@ -53,14 +53,6 @@ public class LockfileMonitor implements Runnable {
             }
         } while (leagueFolder == null);
 
-        try {
-            this.watchService = FileSystems.getDefault().newWatchService();
-            leagueFolder.register(this.watchService, ENTRY_MODIFY, ENTRY_DELETE);
-        } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
-            return;
-        }
-
         Path lockfilePath = leagueFolder.resolve("lockfile");
         // We check whether the client is already open, if so, connect directly
         if (Files.exists(lockfilePath)) {
@@ -75,23 +67,21 @@ public class LockfileMonitor implements Runnable {
             this.leagueStarted = false;
         }
 
-        // Last check with shouldStop, after that the monitor closes when the WatchService gets closed
-        if (this.shouldStop) {
-            return;
-        }
-
-        WatchKey key;
-        String lockfileContent;
         try {
-            while ((key = this.watchService.take()) != null) {
+            this.watchService = FileSystems.getDefault().newWatchService();
+            leagueFolder.register(this.watchService, ENTRY_MODIFY, ENTRY_DELETE);
+
+            while (!this.shouldStop) {
+                WatchKey key = this.watchService.take();
+
                 for (WatchEvent<?> event : key.pollEvents()) {
-                    if (((Path) event.context()).endsWith("lockfile")) {
+                    if (event.context().toString().equals("lockfile")) {
                         if (event.kind() == ENTRY_MODIFY) { // lockfile modified -> first startup, or closed abruptly
                             if (this.leagueStarted) {
                                 continue;
                             }
                             App.onLeagueStop();
-                            lockfileContent = Utils.readLockfile(lockfilePath);
+                            String lockfileContent = Utils.readLockfile(lockfilePath);
                             App.onLeagueStart(lockfileContent);
                             this.setLeagueStarted(true);
                         } else if (event.kind() == ENTRY_DELETE) { // lockfile deleted -> client closed
@@ -100,13 +90,14 @@ public class LockfileMonitor implements Runnable {
                         }
                     }
                 }
+
                 key.reset();
             }
-        } catch (InterruptedException e) {
-            LOGGER.error(e.getMessage(), e);
-            Thread.currentThread().interrupt();
         } catch (ClosedWatchServiceException e) {
             // Will be thrown when LockfileMonitor.stop() is called.
+        } catch (Exception e) {
+            LOGGER.error(e.getMessage(), e);
+            Thread.currentThread().interrupt();
         }
     }
 

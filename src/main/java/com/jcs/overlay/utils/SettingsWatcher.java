@@ -34,12 +34,7 @@ public class SettingsWatcher implements Runnable {
         try {
             this.watchService = FileSystems.getDefault().newWatchService();
             CONFIG_PATH.getParent().register(this.watchService, ENTRY_MODIFY, ENTRY_DELETE);
-        } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
-            return;
-        }
 
-        try {
             while (!this.shouldStop) {
                 WatchKey key = this.watchService.take();
 
