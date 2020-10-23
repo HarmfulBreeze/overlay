@@ -142,7 +142,7 @@ public class AssetsUpdater {
         Patch gamePatch = Patch.named(localCDragonPatch).get();
         ZonedDateTime localPatchReleaseTime;
 
-        if (gamePatch.getStartTime() != null) {
+        if (gamePatch.exists()) {
             DateTime jodaUTCStartTime = gamePatch.getStartTime().withZone(DateTimeZone.UTC);
             Instant instant = Instant.ofEpochMilli(jodaUTCStartTime.getMillis());
             ZoneId zoneId = ZoneId.of(jodaUTCStartTime.getZone().getID(), ZoneId.SHORT_IDS);
