@@ -9,8 +9,6 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +21,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -143,10 +140,7 @@ public class AssetsUpdater {
         ZonedDateTime localPatchReleaseTime;
 
         if (gamePatch.exists()) {
-            DateTime jodaUTCStartTime = gamePatch.getStartTime().withZone(DateTimeZone.UTC);
-            Instant instant = Instant.ofEpochMilli(jodaUTCStartTime.getMillis());
-            ZoneId zoneId = ZoneId.of(jodaUTCStartTime.getZone().getID(), ZoneId.SHORT_IDS);
-            localPatchReleaseTime = ZonedDateTime.ofInstant(instant, zoneId);
+            localPatchReleaseTime = gamePatch.getStartTime();
         } else {
             localPatchReleaseTime = null; // localCDragonPatch is not a valid patch
         }
