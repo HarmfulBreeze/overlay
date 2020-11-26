@@ -12,20 +12,10 @@ version = "1.5.0-SNAPSHOT"
 configurations {
     create("implementationW32")
     create("implementationW64")
-    create("W32")
-    create("W64")
 
     compileOnly {
         extendsFrom(configurations["implementationW32"])
         extendsFrom(configurations["implementationW64"])
-    }
-    "W32" {
-        extendsFrom(configurations["implementationW32"])
-        extendsFrom(configurations["runtimeClasspath"])
-    }
-    "W64" {
-        extendsFrom(configurations["implementationW64"])
-        extendsFrom(configurations["runtimeClasspath"])
     }
 }
 
@@ -74,6 +64,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.9.0")
 
     // Orianna
+//    implementation("com.merakianalytics.orianna", "orianna", "4.0.0-rc7")
     implementation(":orianna-4.0.0-SNAPSHOT")
     implementation(fileTree("libs/orianna") { include("*.jar") })
 
@@ -108,14 +99,12 @@ tasks.register<ModularJavaExec>("runW32") {
     group = "application"
     mainModule.set("overlay.main")
     mainClass.set("com.jcs.overlay.App")
-//    classpath = project.sourceSets.main.get().output + configurations["W32"]
-//    main = application.mainClass.get()
+    configurations["implementation"].extendsFrom(configurations["implementationW32"])
 }
 
 tasks.register<ModularJavaExec>("runW64") {
     group = "application"
     mainModule.set("overlay.main")
     mainClass.set("com.jcs.overlay.App")
-//    classpath = project.sourceSets.main.get().output + configurations["W64"]
-//    main = application.mainClassName
+    configurations["implementation"].extendsFrom(configurations["implementationW64"])
 }
