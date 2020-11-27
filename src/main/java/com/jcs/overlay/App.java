@@ -5,9 +5,6 @@ import com.jcs.overlay.utils.*;
 import com.jcs.overlay.websocket.WSAutoReconnect;
 import com.jcs.overlay.websocket.WSClient;
 import com.jcs.overlay.websocket.WSServer;
-import com.merakianalytics.orianna.Orianna;
-import com.merakianalytics.orianna.types.core.staticdata.Champions;
-import com.merakianalytics.orianna.types.core.staticdata.SummonerSpells;
 import org.cef.CefApp;
 import org.jetbrains.annotations.Contract;
 import org.slf4j.Logger;
@@ -47,9 +44,9 @@ public class App {
         SysOutOverSLF4J.sendSystemOutAndErrToSLF4J();
 
         // Orianna setup & pre-caching
-        Orianna.loadConfiguration("config.json");
-        Champions.get().load();
-        SummonerSpells.get().load();
+//        Orianna.loadConfiguration("config.json");
+//        Champions.get().load();
+//        SummonerSpells.get().load();
 
         // Assets updates
         AssetsUpdater.updateDDragonAssets();

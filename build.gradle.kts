@@ -4,6 +4,17 @@ plugins {
     id("application")
     id("java")
     id("org.javamodularity.moduleplugin") version "1.7.0"
+    id("org.beryx.jlink") version "2.22.3"
+}
+
+jlink {
+    addOptions("--strip-debug", "--compress=2", "--no-header-files", "--no-man-pages")
+    forceMerge("slf4j-api")
+    configuration.set("W64")
+    mergedModule {
+        additive = true
+        requires("jdk.crypto.ec") // Fixes random SSLHandshakeException...
+    }
 }
 
 group = "com.jcs"
@@ -12,9 +23,19 @@ version = "1.5.0-SNAPSHOT"
 configurations {
     create("implementationW32")
     create("implementationW64")
+    create("W32")
+    create("W64")
 
     compileOnly {
         extendsFrom(configurations["implementationW32"])
+        extendsFrom(configurations["implementationW64"])
+    }
+    "W32" {
+        extendsFrom(configurations["implementation"])
+        extendsFrom(configurations["implementationW32"])
+    }
+    "W64" {
+        extendsFrom(configurations["implementation"])
         extendsFrom(configurations["implementationW64"])
     }
 }
@@ -65,8 +86,8 @@ dependencies {
 
     // Orianna
 //    implementation("com.merakianalytics.orianna", "orianna", "4.0.0-rc7")
-    implementation(":orianna-4.0.0-SNAPSHOT")
-    implementation(fileTree("libs/orianna") { include("*.jar") })
+//    implementation(":orianna-4.0.0-SNAPSHOT")
+//    implementation(fileTree("libs/orianna") { include("*.jar") })
 
     // Moshi
     implementation("com.squareup.moshi", "moshi", "1.11.0")

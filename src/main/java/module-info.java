@@ -5,7 +5,7 @@ module overlay.main {
     requires java.base;
     requires java.net.http;
     requires org.apache.commons.lang3;
-    requires orianna;
+//    requires orianna;
     requires kotlin.stdlib;
     requires org.slf4j;
     requires jcef;
@@ -16,6 +16,6 @@ module overlay.main {
     requires java.desktop;
     requires typesafe.config;
     requires okhttp3;
-    requires com.fasterxml.jackson.databind;
-    requires com.fasterxml.jackson.datatype.jsr310;
+//    requires com.fasterxml.jackson.databind;
+//    requires com.fasterxml.jackson.datatype.jsr310;
 }
