@@ -5,6 +5,9 @@ import com.jcs.overlay.utils.*;
 import com.jcs.overlay.websocket.WSAutoReconnect;
 import com.jcs.overlay.websocket.WSClient;
 import com.jcs.overlay.websocket.WSServer;
+import com.merakianalytics.orianna.Orianna;
+import com.merakianalytics.orianna.types.core.staticdata.Champions;
+import com.merakianalytics.orianna.types.core.staticdata.SummonerSpells;
 import org.cef.CefApp;
 import org.jetbrains.annotations.Contract;
 import org.slf4j.Logger;
@@ -15,6 +18,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static org.cef.CefApp.CefAppState.NONE;
@@ -33,7 +37,8 @@ public class App {
 
     public static void main(String[] args) {
         noGUI = (args.length > 0 && args[0].equals("-nogui"))
-                || SettingsManager.getManager().getConfig().getBoolean("debug.nogui");
+                || SettingsManager.getManager().getConfig().getBoolean("debug.nogui")
+                || Objects.equals(System.getenv("OVERLAY_NOGUI"), "1");
         init();
         start();
     }
@@ -44,9 +49,9 @@ public class App {
         SysOutOverSLF4J.sendSystemOutAndErrToSLF4J();
 
         // Orianna setup & pre-caching
-//        Orianna.loadConfiguration("config.json");
-//        Champions.get().load();
-//        SummonerSpells.get().load();
+        Orianna.loadConfiguration("config.json");
+        Champions.get().load();
+        SummonerSpells.get().load();
 
         // Assets updates
         AssetsUpdater.updateDDragonAssets();

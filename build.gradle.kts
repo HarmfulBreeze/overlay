@@ -1,49 +1,11 @@
-import org.javamodularity.moduleplugin.tasks.ModularJavaExec
-
 plugins {
     id("application")
-    id("java")
     id("org.javamodularity.moduleplugin") version "1.7.0"
-    id("org.beryx.jlink") version "2.22.3"
-}
-
-jlink {
-    addOptions("--strip-debug", "--compress=2", "--no-header-files", "--no-man-pages")
-    forceMerge("slf4j-api")
-    configuration.set("W64")
-    mergedModule {
-        additive = true
-        requires("jdk.crypto.ec") // Fixes random SSLHandshakeException...
-    }
+    id("com.jcs.extras.extras-plugin")
 }
 
 group = "com.jcs"
 version = "1.5.0-SNAPSHOT"
-
-configurations {
-    create("implementationW32")
-    create("implementationW64")
-    create("W32")
-    create("W64")
-
-    compileOnly {
-        extendsFrom(configurations["implementationW32"])
-        extendsFrom(configurations["implementationW64"])
-    }
-    "W32" {
-        extendsFrom(configurations["implementation"])
-        extendsFrom(configurations["implementationW32"])
-    }
-    "W64" {
-        extendsFrom(configurations["implementation"])
-        extendsFrom(configurations["implementationW64"])
-    }
-}
-
-tasks.withType<JavaCompile> {
-    options.encoding = "UTF-8"
-    options.release.set(15)
-}
 
 tasks.test {
     useJUnitPlatform()
@@ -54,14 +16,15 @@ application {
     mainClass.set("com.jcs.overlay.App")
 }
 
-java {
-    modularity.inferModulePath.set(true)
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+    options.release.set(15)
 }
 
-tasks.withType<ModularJavaExec> {
+// Modularity stuff
+tasks.withType<JavaExec> {
     modularity.inferModulePath.set(true)
 }
-
 modularity.patchModule("slf4j.log4j12", "log4j-1.2.17.jar")
 modularity.disableEffectiveArgumentsAdjustment()
 
@@ -71,6 +34,7 @@ repositories {
     }
     jcenter()
     mavenCentral()
+    maven { url = uri("https://oss.sonatype.org/content/repositories/snapshots") }
     google()
 }
 
@@ -86,23 +50,18 @@ dependencies {
 
     // Orianna
 //    implementation("com.merakianalytics.orianna", "orianna", "4.0.0-rc7")
-//    implementation(":orianna-4.0.0-SNAPSHOT")
-//    implementation(fileTree("libs/orianna") { include("*.jar") })
+    implementation("com.merakianalytics.orianna", "orianna", "4.0.0-SNAPSHOT")
 
     // Moshi
     implementation("com.squareup.moshi", "moshi", "1.11.0")
-//    implementation("com.squareup.moshi", "moshi-adapters", "1.11.0")
-    implementation(":adapters-1.11.1-SNAPSHOT")
+    implementation(":moshi-adapters-1.11.1-SNAPSHOT")
 
     // CEF (from JAR)
     implementation(":jogl-all")
     implementation(":gluegen-rt")
-    "implementationW32"(":jcef-win32")
-    "implementationW32"(":gluegen-rt-natives-windows-i586")
-    "implementationW32"(":jogl-all-natives-windows-i586")
-    "implementationW64"(":jcef-win64")
-    "implementationW64"(":gluegen-rt-natives-windows-amd64")
-    "implementationW64"(":jogl-all-natives-windows-amd64")
+    implementation(":jcef-win64")
+    implementation(":gluegen-rt-natives-windows-amd64")
+    implementation(":jogl-all-natives-windows-amd64")
 
     // SLF4J
     implementation("org.slf4j", "slf4j-api", "1.8.0-beta4")
@@ -114,18 +73,4 @@ dependencies {
     compileOnly("com.google.code.findbugs", "jsr305", "3.0.2")
     testImplementation("org.junit.jupiter", "junit-jupiter-api", "5.4.2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.4.2")
-}
-
-tasks.register<ModularJavaExec>("runW32") {
-    group = "application"
-    mainModule.set("overlay.main")
-    mainClass.set("com.jcs.overlay.App")
-    configurations["implementation"].extendsFrom(configurations["implementationW32"])
-}
-
-tasks.register<ModularJavaExec>("runW64") {
-    group = "application"
-    mainModule.set("overlay.main")
-    mainClass.set("com.jcs.overlay.App")
-    configurations["implementation"].extendsFrom(configurations["implementationW64"])
 }

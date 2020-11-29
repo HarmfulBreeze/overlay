@@ -1,14 +1,16 @@
 package com.jcs.overlay.utils;
 
-//import com.merakianalytics.orianna.types.common.OriannaException;
-//import com.merakianalytics.orianna.types.core.staticdata.*;
-
+import com.merakianalytics.orianna.types.common.OriannaException;
+import com.merakianalytics.orianna.types.core.staticdata.*;
+import com.typesafe.config.ConfigValueFactory;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +22,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -55,7 +59,7 @@ public class AssetsUpdater {
      */
     public static void updateCDragonAssets() {
         LOGGER.info("Checking for a CDragon assets update...");
-        String latestGamePatch = "Patches.get().get(0).getName()";
+        String latestGamePatch = Patches.get().get(0).getName();
         LOGGER.debug("Latest game patch is {}.", latestGamePatch);
         String localCDragonPatch = SettingsManager.getManager().getConfig().getString("debug.cdragonPatch");
         if (!latestGamePatch.equals(localCDragonPatch)) {
@@ -94,7 +98,7 @@ public class AssetsUpdater {
      */
     private static boolean checkForNewDDragonPatch() {
         String localVersion = SettingsManager.getManager().getConfig().getString("debug.ddragonPatch");
-        String latestVersion = "Versions.get().get(0)";
+        String latestVersion = Versions.get().get(0);
         return !localVersion.equals(latestVersion);
     }
 
@@ -102,7 +106,7 @@ public class AssetsUpdater {
         boolean success = true;
 
         // Download all summoner spells images and write them to PNG files
-        /*for (SummonerSpell spell : SummonerSpells.get()) {
+        for (SummonerSpell spell : SummonerSpells.get()) {
             BufferedImage spellImg;
             try {
                 spellImg = spell.getImage().get();
@@ -119,9 +123,9 @@ public class AssetsUpdater {
                 LOGGER.error("An error occurred while writing to the PNG file.", e);
                 success = false;
             }
-        }*/
+        }
 
-        /*if (success) {
+        if (success) {
             LOGGER.debug("Updating the DDragon patch in config...");
             String latestVersion = Versions.get().get(0);
             SettingsManager.getManager().updateValue("debug.ddragonPatch",
@@ -129,17 +133,20 @@ public class AssetsUpdater {
             LOGGER.info("DDragon assets update completed.");
         } else {
             LOGGER.info("DDragon assets update did not fully succeed. We will retry updating on the next startup.");
-        }*/
+        }
     }
 
     private static void performCDragonUpdate(OkHttpClient client, String latestCDragonPatch, String localCDragonPatch) {
-        /*boolean success = true;
+        boolean success = true;
         Champions allChampions = Champions.get();
         Patch gamePatch = Patch.named(localCDragonPatch).get();
         ZonedDateTime localPatchReleaseTime;
 
         if (gamePatch.exists()) {
-            localPatchReleaseTime = gamePatch.getStartTime();
+            DateTime jodaUTCStartTime = gamePatch.getStartTime().withZone(DateTimeZone.UTC);
+            Instant instant = Instant.ofEpochMilli(jodaUTCStartTime.getMillis());
+            ZoneId zoneId = ZoneId.of(jodaUTCStartTime.getZone().getID(), ZoneId.SHORT_IDS);
+            localPatchReleaseTime = ZonedDateTime.ofInstant(instant, zoneId);
         } else {
             localPatchReleaseTime = null; // localCDragonPatch is not a valid patch
         }
@@ -190,7 +197,7 @@ public class AssetsUpdater {
             LOGGER.info("CDragon assets update completed.");
         } else {
             LOGGER.info("CDragon assets update did not fully succeed. We will retry updating on the next startup.");
-        }*/
+        }
     }
 
     /**
@@ -313,7 +320,7 @@ public class AssetsUpdater {
         int patchIndex = 0;
         String gamePatch;
         do {
-            gamePatch = "10.24";
+            gamePatch = Patches.get().get(patchIndex).getName();
             String url = "https://raw.communitydragon.org/" + gamePatch + "/";
             Request request = new Request.Builder().url(url).build();
             try (Response response = client.newCall(request).execute()) {

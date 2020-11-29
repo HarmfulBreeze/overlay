@@ -1,0 +1,5 @@
+@echo off
+set DIR="%~dp0"
+set JAVA_EXEC="%DIR:"=%\\bin\\java"
+set PATH=%DIR:"=%\\lib\\cef
+pushd %DIR% & %JAVA_EXEC% $jvmArgs -p "%~dp0\\app" -m $moduleName/$mainClassName $args %* & popd

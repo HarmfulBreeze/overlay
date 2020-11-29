@@ -126,7 +126,11 @@ gradle-app.setting
 ### Other
 apikey.txt
 latestPatch.txt
-/config.conf
+config.conf
 
-### Logs folder
-logs
+### Logs
+/logs
+
+### jlink
+/buildSrc/build/
+log.txt

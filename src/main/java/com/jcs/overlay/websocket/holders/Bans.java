@@ -1,6 +1,6 @@
 package com.jcs.overlay.websocket.holders;
 
-//import com.merakianalytics.orianna.types.core.staticdata.Champion;
+import com.merakianalytics.orianna.types.core.staticdata.Champion;
 
 public class Bans {
     private final String[] banArray;

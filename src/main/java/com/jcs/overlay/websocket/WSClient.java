@@ -12,6 +12,9 @@ import com.jcs.overlay.websocket.messages.C2J.champselect.SessionMessage;
 import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
 import com.jcs.overlay.websocket.messages.C2J.summoner.SummonerIdAndName;
 import com.jcs.overlay.websocket.messages.J2W.*;
+import com.merakianalytics.orianna.types.core.staticdata.Champion;
+import com.merakianalytics.orianna.types.core.staticdata.Champions;
+import com.merakianalytics.orianna.types.core.staticdata.SummonerSpell;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
@@ -238,7 +241,7 @@ public class WSClient extends WebSocketClient {
         this.wsServer.broadcastWebappMessage(SetupWebappMessage.class, setupMessage);
 
         List<String> championKeys = new ArrayList<>();
-//        Champions.get().forEach(champ -> championKeys.add(champ.getKey()));
+        Champions.get().forEach(champ -> championKeys.add(champ.getKey()));
         PreloadSplashImagesMessage preloadMessage = new PreloadSplashImagesMessage(championKeys);
         this.wsServer.broadcastWebappMessage(PreloadSplashImagesMessage.class, preloadMessage);
     }
@@ -402,9 +405,9 @@ public class WSClient extends WebSocketClient {
                 String summonerName = player.getSummonerName();
                 String championName, championKey;
                 if (action.getChampionId() != 0) {
-//                    Champion champion = Champion.withId(action.getChampionId()).get();
-                    championName = "champion.getName()";
-                    championKey = "champion.getKey()";
+                    Champion champion = Champion.withId(action.getChampionId()).get();
+                    championName = champion.getName();
+                    championKey = champion.getKey();
                 } else { // Hack for no ban
                     championName = "None";
                     championKey = "None";
@@ -458,9 +461,9 @@ public class WSClient extends WebSocketClient {
                 String summonerName = player.getSummonerName();
                 String championName, championKey;
                 if (action.getChampionId() != 0) {
-//                    Champion champion = Champion.withId(action.getChampionId()).get();
-                    championName = "champion.getName()";
-                    championKey = "champion.getKey()";
+                    Champion champion = Champion.withId(action.getChampionId()).get();
+                    championName = champion.getName();
+                    championKey = champion.getKey();
                 } else { // Hack for no ban
                     championName = "None";
                     championKey = "None";
@@ -667,9 +670,9 @@ public class WSClient extends WebSocketClient {
                                 String championName;
                                 String championKey;
                                 if (updatedAction.getChampionId() != 0) {
-//                                    Champion champion = Champion.withId(updatedAction.getChampionId()).get();
-                                    championName = "champion.getName()";
-                                    championKey = "champion.getKey()";
+                                    Champion champion = Champion.withId(updatedAction.getChampionId()).get();
+                                    championName = champion.getName();
+                                    championKey = champion.getKey();
                                 } else {
                                     championName = "None";
                                     championKey = "None";
@@ -713,8 +716,8 @@ public class WSClient extends WebSocketClient {
                 if (spell1Id != 0 && spell2Id != 0) { // If we have info on the enemy team sums
                     String summonerName = player.getSummonerName();
                     LOGGER.debug(summonerName + " has summoner spells "
-                            + "SummonerSpell.withId(spell1Id.intValue()).get().getName()"
-                            + " and " + "SummonerSpell.withId(spell2Id.intValue()).get().getName())");
+                            + SummonerSpell.withId(spell1Id.intValue()).get().getName()
+                            + " and " + SummonerSpell.withId(spell2Id.intValue()).get().getName());
 
                     long adjustedCellId = player.getAdjustedCellId();
                     SetSummonerSpellsMessage msg1 = new SetSummonerSpellsMessage(adjustedCellId, 1, spell1Id);
@@ -732,14 +735,14 @@ public class WSClient extends WebSocketClient {
                 long adjustedCellId = this.playerList.get(i).getAdjustedCellId();
                 if (!newSpell1Id.equals(oldPlayer.getSpell1Id()) && newSpell1Id != 0) {
                     LOGGER.debug(summonerName + " changed summoner spell 1 to "
-                            + "SummonerSpell.withId(newSpell1Id.intValue()).get().getName())");
+                            + SummonerSpell.withId(newSpell1Id.intValue()).get().getName());
 
                     SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 1, newSpell1Id);
                     this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg);
                 }
                 if (!newSpell2Id.equals(oldPlayer.getSpell2Id()) && newSpell2Id != 0) {
                     LOGGER.debug(summonerName + " changed summoner spell 2 to "
-                            + "SummonerSpell.withId(newSpell2Id.intValue()).get().getName()");
+                            + SummonerSpell.withId(newSpell2Id.intValue()).get().getName());
 
                     SetSummonerSpellsMessage msg = new SetSummonerSpellsMessage(adjustedCellId, 2, newSpell2Id);
                     this.wsServer.broadcastWebappMessage(SetSummonerSpellsMessage.class, msg);
@@ -756,8 +759,7 @@ public class WSClient extends WebSocketClient {
                 long adjustedCellId = this.playerList.get(i).getAdjustedCellId();
                 if (newPlayer.getChampionId() != oldPlayer.getChampionId()) {
                     SetPickIntentMessage msg = new SetPickIntentMessage(adjustedCellId,
-//                            Champion.withId(newPlayer.getChampionId()).get().getKey());
-                            "1");
+                            Champion.withId(newPlayer.getChampionId()).get().getKey());
                     this.wsServer.broadcastWebappMessage(SetPickIntentMessage.class, msg);
                 }
             }
