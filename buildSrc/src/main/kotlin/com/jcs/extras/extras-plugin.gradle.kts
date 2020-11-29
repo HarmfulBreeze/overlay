@@ -17,18 +17,6 @@ plugins {
     id("org.beryx.jlink")
 }
 
-jlink {
-    addOptions("--strip-debug", "--compress=2", "--no-header-files", "--no-man-pages")
-    forceMerge("slf4j-api")
-    mergedModule {
-        additive = true
-        requires("jdk.crypto.ec") // Fixes random SSLHandshakeException...
-    }
-    launcher {
-        windowsScriptTemplate = file("jlink/windows_launcher_template.txt")
-    }
-}
-
 tasks.withType<JavaExec> {
     dependsOn(UNZIP_REQUIREMENTS_TASK_NAME)
 }
