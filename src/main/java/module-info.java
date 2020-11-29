@@ -29,11 +29,11 @@ module overlay.main {
     requires typesafe.config;
 
     // opens declarations for Moshi reflection
-    opens com.jcs.overlay.utils;
-    opens com.jcs.overlay.websocket.holders;
-    opens com.jcs.overlay.websocket.messages.C2J;
-    opens com.jcs.overlay.websocket.messages.C2J.champselect;
-    opens com.jcs.overlay.websocket.messages.C2J.summoner;
-    opens com.jcs.overlay.websocket.messages.J2W;
-    opens com.jcs.overlay.websocket.messages.J2W.enums;
+    opens com.jcs.overlay.utils to moshi;
+    opens com.jcs.overlay.websocket.holders to moshi;
+    opens com.jcs.overlay.websocket.messages.C2J to moshi;
+    opens com.jcs.overlay.websocket.messages.C2J.champselect to moshi;
+    opens com.jcs.overlay.websocket.messages.C2J.summoner to moshi;
+    opens com.jcs.overlay.websocket.messages.J2W to moshi;
+    opens com.jcs.overlay.websocket.messages.J2W.enums to moshi;
 }
