@@ -6,16 +6,15 @@
 ![Screenshot](img/overlay_screenshot.png "Screenshot")
 
 ## Requirements
-- **Windows**
-- Java (min. Java 8)
+- Windows
 
 ## Getting started
 - Download the latest release [here](https://github.com/piorrro33/overlay/releases/latest). Download the win32 archive for 32 bits Java, or the win64 archive for 64 bits Java.
-- Extract the zip file and execute ``run.bat`` to start Overlay.
+- Extract the zip file and execute `run.bat` to start Overlay.
 
 ## Customization
-Edit the configuration by modifying ``config.conf`` and saving.
-You can also customize fonts and more elements: check out ``./web/img/custom`` and ``./web/fonts``.
+Edit the configuration by modifying `config.conf` and saving.
+You can also customize fonts and more elements: check out `./web/img/custom` and `./web/fonts`.
 
 ## OBS Studio Setup
 Two methods can be used to set up Overlay with OBS Studio: simple and advanced.
@@ -39,7 +38,12 @@ Don't forget to make your browser source `local file` point to the latest `index
 
 ## Building and running
 ### Building
-- Extract ``./libs/lib/win32.zip`` (for 32 bits Java), ``./libs/lib/win64.zip`` (for 64 bits Java) and ``./web/web.zip``.Select "extract here".
-- Open the ``scripts`` folder and run ``build_win32.bat`` or ``build_win64.bat``.
+- Open the `scripts` folder and run `build.bat`. It will generate a JAR in `build/libs`.
+### Making a distribution
+If you wish to make a ZIP file to distribute easily:
+- Open the `scripts` folder and run `make_distrib.bat`. It will generate a distributable ZIP in `build/distribution`.
 ### Running
-- Execute ``run_win32.bat`` or ``run_win64.bat`` in the ``scripts`` folder.
+From the project:
+- Execute `run.bat` in the `scripts` folder.
+From a distribution:
+- Execute `run.bat` from the root of the distribution.
