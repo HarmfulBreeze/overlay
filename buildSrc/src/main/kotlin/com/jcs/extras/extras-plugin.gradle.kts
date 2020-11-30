@@ -48,6 +48,7 @@ tasks.register<Tar>("overlayDistTar") {
 fun archiveWork(archiveTask: AbstractArchiveTask) {
     archiveTask.group = "distribution"
     archiveTask.dependsOn(JlinkPlugin.getTASK_NAME_JLINK(), UNZIP_REQUIREMENTS_TASK_NAME)
+    archiveTask.archiveVersion.set("v" + archiveTask.archiveVersion.get())
     val imageDir = jlink.imageDir.asFile.get()
     val zipNameNoExt = archiveTask.archiveFile.get().asFile.nameWithoutExtension
     val launcherFileName = jlink.launcherData.get().name
