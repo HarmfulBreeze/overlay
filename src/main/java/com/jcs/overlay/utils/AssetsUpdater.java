@@ -3,10 +3,7 @@ package com.jcs.overlay.utils;
 import com.merakianalytics.orianna.types.common.OriannaException;
 import com.merakianalytics.orianna.types.core.staticdata.*;
 import com.typesafe.config.ConfigValueFactory;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
+import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
@@ -16,7 +13,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -36,6 +32,7 @@ public class AssetsUpdater {
     private static final DateTimeFormatter RFC1123_FORMATTER = DateTimeFormatter
             .ofPattern("EEE, dd MMM yyyy HH:mm:ss z", Locale.ENGLISH)
             .withZone(ZoneId.of("GMT"));
+    private static boolean cDragonSuccess = true;
 
     private AssetsUpdater() {
         throw new UnsupportedOperationException("Utility class");
@@ -137,7 +134,6 @@ public class AssetsUpdater {
     }
 
     private static void performCDragonUpdate(OkHttpClient client, String latestCDragonPatch, String localCDragonPatch) {
-        boolean success = true;
         Champions allChampions = Champions.get();
         Patch gamePatch = Patch.named(localCDragonPatch).get();
         ZonedDateTime localPatchReleaseTime;
@@ -155,12 +151,7 @@ public class AssetsUpdater {
         String url = "https://raw.communitydragon.org/" + latestCDragonPatch +
                 "/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/-1.png";
         Path path = Paths.get(IMG_FOLDER_PATH, "icon/champion/icon_None.png");
-        try {
-            downloadPngIfModified(client, localPatchReleaseTime, url, path);
-        } catch (IOException e) {
-            LOGGER.error("Error downloading PNG file if modified.", e);
-            success = false;
-        }
+        downloadPngIfModified(client, localPatchReleaseTime, url, path);
 
         // Download every champion's centered splash art and write them to PNG files
         for (Champion champion : allChampions) {
@@ -168,12 +159,7 @@ public class AssetsUpdater {
                     "/plugins/rcp-be-lol-game-data/global/default/v1/champion-splashes/" +
                     champion.getId() + "/" + champion.getId() + "000.jpg";
             path = Paths.get(IMG_FOLDER_PATH + "splash/" + champion.getKey() + ".png");
-            try {
-                downloadPngIfModified(client, localPatchReleaseTime, url, path);
-            } catch (IOException e) {
-                LOGGER.error("Error downloading PNG file if modified.", e);
-                success = false;
-            }
+            downloadPngIfModified(client, localPatchReleaseTime, url, path);
         }
 
         // Download every champion tile and write them to PNG files
@@ -182,15 +168,25 @@ public class AssetsUpdater {
                     "/plugins/rcp-be-lol-game-data/global/default/v1/champion-tiles/" +
                     champion.getId() + "/" + champion.getId() + "000.jpg";
             path = Paths.get(IMG_FOLDER_PATH + "tile/" + champion.getKey() + ".png");
+            downloadPngIfModified(client, localPatchReleaseTime, url, path);
+        }
+
+        // Create an idle callback that will wake up the current thread when all PNGs requests have been handled
+        Object lock = new Object();
+        client.dispatcher().setIdleCallback(() -> {
+            synchronized (lock) {
+                lock.notify();
+            }
+        });
+        synchronized (lock) {
             try {
-                downloadPngIfModified(client, localPatchReleaseTime, url, path);
-            } catch (IOException e) {
-                LOGGER.error("Error downloading PNG file if modified.", e);
-                success = false;
+                lock.wait();
+            } catch (InterruptedException e) {
+                LOGGER.error(e.getMessage(), e);
             }
         }
 
-        if (success) {
+        if (cDragonSuccess) {
             LOGGER.debug("Updating the CDragon patch in config...");
             SettingsManager.getManager().updateValue("debug.cdragonPatch",
                     ConfigValueFactory.fromAnyRef(latestCDragonPatch));
@@ -213,40 +209,15 @@ public class AssetsUpdater {
     private static void downloadPngIfModified(OkHttpClient client,
                                               @Nullable ZonedDateTime since,
                                               String url,
-                                              Path path) throws IOException {
+                                              Path path) {
         if (since != null) {
-            ZonedDateTime lastModifiedTime = getLastModifiedTimeForURL(client, url);
-            if (lastModifiedTime == null || lastModifiedTime.isAfter(since)) {
-                byte[] bytes = getResponseBodyBytesForURL(client, url);
-                InputStream is = new ByteArrayInputStream(bytes);
-                writeImageToPngFile(is, path);
-            }
+            Request req = new Request.Builder().url(url).head().build();
+            LOGGER.debug("Queuing HEAD request to " + url);
+            client.newCall(req).enqueue(new HeadCallback(client, since, path));
         } else {
-            byte[] bytes = getResponseBodyBytesForURL(client, url);
-            InputStream is = new ByteArrayInputStream(bytes);
-            writeImageToPngFile(is, path);
-        }
-    }
-
-    /**
-     * GETs the {@code bytes} from the {@link ResponseBody} for a specified URL.
-     *
-     * @param client the {@link OkHttpClient} to be used for sending the request.
-     * @param url    the URL to send the request to.
-     * @return A {@code byte[]} of the body of the GET request.
-     * @throws IOException in case the request fails.
-     */
-    private static byte[] getResponseBodyBytesForURL(OkHttpClient client, String url) throws IOException {
-        Request getRequest = new Request.Builder().url(url).build();
-        LOGGER.debug("Making GET request to " + url);
-        try (Response response = client.newCall(getRequest).execute()) {
-            if (response.code() == 200) {
-                ResponseBody body = response.body();
-                assert body != null; // Body is non-null as it comes from Call#execute
-                return body.bytes();
-            } else {
-                throw new IOException("Unexpected HTTP response code: " + response.code());
-            }
+            Request getReq = new Request.Builder().url(url).build();
+            LOGGER.debug("Queuing GET request to " + url);
+            client.newCall(getReq).enqueue(new GetCallback(path));
         }
     }
 
@@ -276,34 +247,11 @@ public class AssetsUpdater {
      *                     into the file.
      */
     private static void writeImageToPngFile(@NotNull InputStream is, Path path) throws IOException {
+        LOGGER.debug("Writing image to {}", path);
         Files.createDirectories(path.getParent());
         OutputStream os = Files.newOutputStream(path);
         BufferedImage img = ImageIO.read(is);
         ImageIO.write(img, "png", os);
-    }
-
-    /**
-     * Gets the last modified time of the content located at {@code url}.
-     *
-     * @param client the {@link OkHttpClient} to be used for sending the request.
-     * @param url    the URL to the content.
-     * @return a {@link ZonedDateTime} holding the last modified time, or {@code null} if there is no
-     * {@code Last-Modified} header in the response.
-     * @throws IOException if the HTTP request fails.
-     */
-    @Nullable
-    private static ZonedDateTime getLastModifiedTimeForURL(OkHttpClient client, String url) throws IOException {
-        Request req = new Request.Builder().url(url).head().build();
-        LOGGER.debug("Making HEAD request to " + url);
-        try (Response res = client.newCall(req).execute()) {
-            String header = res.header("Last-Modified");
-            if (header != null) {
-                TemporalAccessor parse = RFC1123_FORMATTER.parse(header);
-                return ZonedDateTime.from(parse);
-            } else {
-                return null;
-            }
-        }
     }
 
     /**
@@ -333,5 +281,73 @@ public class AssetsUpdater {
                 }
             }
         } while (true);
+    }
+
+    private static class HeadCallback implements Callback {
+        private final ZonedDateTime since;
+        private final Path pngPath;
+        private final OkHttpClient client;
+
+        public HeadCallback(OkHttpClient client, @Nullable ZonedDateTime since, Path pngPath) {
+            this.client = client;
+            this.since = since;
+            this.pngPath = pngPath;
+        }
+
+        @Override
+        public void onFailure(@NotNull Call call, @NotNull IOException e) {
+            cDragonSuccess = false;
+            LOGGER.error("Could not get headers for request " + call.request().toString(), e);
+        }
+
+        @Override
+        public void onResponse(@NotNull Call call, @NotNull Response res) throws IOException {
+            if (res.code() != 200) {
+                throw new IOException("Unexpected HTTP response code " + res.code() + " for request " + call.request());
+            }
+            String header = res.header("Last-Modified");
+            if (header == null) {
+                LOGGER.warn("No Last-Modified header was found, getting anyway...");
+            } else {
+                TemporalAccessor parse = RFC1123_FORMATTER.parse(header);
+                ZonedDateTime lastModifiedTime = ZonedDateTime.from(parse);
+                if (!lastModifiedTime.isAfter(this.since)) {
+                    return;
+                }
+            }
+            Request getReq = call.request().newBuilder().get().build();
+            LOGGER.debug("Queuing GET request to " + getReq.url());
+            this.client.newCall(getReq).enqueue(new GetCallback(this.pngPath));
+        }
+    }
+
+    private static class GetCallback implements Callback {
+        private final Path pngPath;
+
+        public GetCallback(Path pngPath) {
+            this.pngPath = pngPath;
+        }
+
+        @Override
+        public void onFailure(@NotNull Call call, @NotNull IOException e) {
+            cDragonSuccess = false;
+            LOGGER.error("An error occurred with request " + call.request(), e);
+        }
+
+        @Override
+        public void onResponse(@NotNull Call call, @NotNull Response res) throws IOException {
+            if (res.code() != 200) {
+                throw new IOException("Unexpected HTTP response code: " + res.code());
+            }
+            ResponseBody body = res.body();
+            if (body == null) {
+                throw new IOException("Response body for request " + call.request() + " is null!");
+            }
+            try {
+                writeImageToPngFile(body.byteStream(), this.pngPath);
+            } catch (IOException e) {
+                throw new IOException("Could not write image to PNG file!", e);
+            }
+        }
     }
 }
