@@ -37,6 +37,7 @@ jlink {
         requires("jdk.crypto.ec") // Fixes random SSLHandshakeException...
     }
     launcher {
+        name = "run"
         windowsScriptTemplate = file("jlink/windows_launcher_template.txt")
     }
 }
