@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.jcs"
-version = "1.5.0-SNAPSHOT"
+version = "1.5.1-SNAPSHOT"
 
 tasks.test {
     useJUnitPlatform()
