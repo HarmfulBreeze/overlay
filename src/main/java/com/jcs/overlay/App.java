@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static org.cef.CefApp.CefAppState.NONE;
@@ -38,7 +37,7 @@ public class App {
     public static void main(String[] args) {
         noGUI = (args.length > 0 && args[0].equals("-nogui"))
                 || SettingsManager.getManager().getConfig().getBoolean("debug.nogui")
-                || Objects.equals(System.getenv("OVERLAY_NOGUI"), "1");
+                || System.getenv("OVERLAY_NOGUI") != null;
         init();
         start();
     }
