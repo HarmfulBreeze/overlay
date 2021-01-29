@@ -8,7 +8,7 @@ public class CefManager {
 
     // Private constructor
     private CefManager() {
-        if (!CefApp.startup()) {
+        if (!CefApp.startup(null)) {
             System.out.println("Startup initialization failed!");
             return;
         }
