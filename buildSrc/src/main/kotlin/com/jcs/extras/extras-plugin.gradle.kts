@@ -68,11 +68,13 @@ fun archiveWork(archiveTask: AbstractArchiveTask) {
     }
     archiveTask.from("${rootDir}/web") {
         include("**")
-        exclude("web.zip",
-                "img/custom/logos/*",
-                "img/icon",
-                "img/splash",
-                "img/tile")
+        exclude(
+            "web.zip",
+            "img/custom/logos/*",
+            "img/icon",
+            "img/splash",
+            "img/tile"
+        )
         into("web")
     }
     archiveTask.from("${rootDir}/libs/lib/win64") {
