@@ -47,7 +47,6 @@ import static com.jcs.overlay.websocket.messages.C2J.champselect.Action.ActionTy
 
 public class WSClient extends WebSocketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(WSClient.class);
-    private final SettingsManager settingsManager = SettingsManager.getManager();
     private final WSServer wsServer = WSServer.getInstance();
     private final Moshi moshi = new Moshi.Builder()
             .add(new Uint64Adapter())
@@ -187,7 +186,7 @@ public class WSClient extends WebSocketClient {
             return;
         }
 
-        if (!this.settingsManager.getConfig().getBoolean("debug.printAllClientMessages")) {
+        if (!SettingsManager.getConfig().getBoolean("debug.printAllClientMessages")) {
             JsonAdapter<SessionMessage> jsonAdapter = this.moshi.adapter(SessionMessage.class);
 
             SessionMessage jsonMessage;

@@ -38,7 +38,7 @@ public class SetupWebappMessage extends WebappMessage {
         private final String team200;
 
         public TeamNames() {
-            Config config = SettingsManager.getManager().getConfig();
+            Config config = SettingsManager.getConfig();
             this.team100 = config.getString("teams.blue.name");
             this.team200 = config.getString("teams.red.name");
         }
@@ -54,7 +54,7 @@ public class SetupWebappMessage extends WebappMessage {
         private final Color team200Color;
 
         public TeamColors() {
-            Config config = SettingsManager.getManager().getConfig();
+            Config config = SettingsManager.getConfig();
             this.team100Color = new Color(config.getIntList("teams.blue.rgbColor"));
             this.team200Color = new Color(config.getIntList("teams.red.rgbColor"));
         }
@@ -96,7 +96,7 @@ public class SetupWebappMessage extends WebappMessage {
         private final SummonerSpellsDisplayStrategy summonerSpellsDisplayStrategy;
 
         public WebappConfig() {
-            Config config = SettingsManager.getManager().getConfig();
+            Config config = SettingsManager.getConfig();
             this.championSplashesEnabled = config.getBoolean("webapp.championSplashesEnabled");
             this.teamNamesFontSize = config.getString("webapp.teamNamesFontSize");
             this.timerStyle = TimerStyle.getTimerStyle(config.getString("webapp.timer.style"));

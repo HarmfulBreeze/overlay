@@ -64,17 +64,14 @@ public final class SettingsManager {
         SummonerSpellsDisplayStrategy.checkStrategy(fileConfig);
     }
 
-    public static SettingsManager getManager() {
-        return Holder.instance;
+    public static Config getConfig() {
+        return Holder.instance.config;
     }
 
-    public Config getConfig() {
-        return this.config;
-    }
-
-    public synchronized void updateValue(String path, ConfigValue value) {
-        this.config = this.config.withValue(path, value);
-        this.writeConfig();
+    public static synchronized void updateValue(String path, ConfigValue value) {
+        SettingsManager manager = Holder.instance;
+        manager.config = manager.config.withValue(path, value);
+        manager.writeConfig();
     }
 
     private void writeConfig() {
@@ -89,13 +86,15 @@ public final class SettingsManager {
         }
     }
 
-    protected synchronized void refreshConfig() {
+    protected static synchronized void refreshConfig() {
+        SettingsManager manager = Holder.instance;
+
         // Load updated config
-        Config prevConf = this.config;
+        Config prevConf = manager.config;
         try {
             Config fileConfig = ConfigFactory.parseFile(CONFIG_PATH.toFile());
             verifyConfig(fileConfig);
-            this.config = ConfigFactory.load(fileConfig).getConfig("overlay");
+            manager.config = ConfigFactory.load(fileConfig).getConfig("overlay");
         } catch (ConfigException.ValidationFailed | ConfigException.Parse e) {
             String errorMessage = "Config file is invalid. Overlay configuration has not been modified.";
             LOGGER.warn(errorMessage);
@@ -107,8 +106,8 @@ public final class SettingsManager {
         LOGGER.info("Updating configuration...");
         // Window size
         if (!App.noGUI) {
-            int windowWidth = this.config.getInt("window.width");
-            int windowHeight = this.config.getInt("window.height");
+            int windowWidth = manager.config.getInt("window.width");
+            int windowHeight = manager.config.getInt("window.height");
             CefManager.getInstance().getMainFrame().resizeWindow(windowWidth, windowHeight);
         }
         // Webapp config
@@ -119,10 +118,10 @@ public final class SettingsManager {
         }
 
         // Check non-updatable settings
-        if (this.config.getBoolean("debug.nogui") != prevConf.getBoolean("debug.nogui")
-                || this.config.getBoolean("cef.disableGpuCompositing") != prevConf.getBoolean("cef.disableGpuCompositing")
-                || !this.config.getString("debug.cdragonPatch").equals(prevConf.getString("debug.cdragonPatch"))
-                || !this.config.getString("debug.ddragonPatch").equals(prevConf.getString("debug.ddragonPatch"))) {
+        if (manager.config.getBoolean("debug.nogui") != prevConf.getBoolean("debug.nogui")
+                || manager.config.getBoolean("cef.disableGpuCompositing") != prevConf.getBoolean("cef.disableGpuCompositing")
+                || !manager.config.getString("debug.cdragonPatch").equals(prevConf.getString("debug.cdragonPatch"))
+                || !manager.config.getString("debug.ddragonPatch").equals(prevConf.getString("debug.ddragonPatch"))) {
             LOGGER.info("Configuration updated. Some settings need Overlay to be restarted in order to take effect.");
         } else {
             LOGGER.info("Configuration updated.");

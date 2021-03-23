@@ -31,7 +31,7 @@ public class MainFrame extends JFrame {
 
     public MainFrame(String startURL, boolean useOSR, boolean isTransparent) {
         List<String> cliSwitches = new ArrayList<>();
-        if (SettingsManager.getManager().getConfig().getBoolean("cef.disableGpuCompositing")) {
+        if (SettingsManager.getConfig().getBoolean("cef.disableGpuCompositing")) {
             cliSwitches.add("--disable-gpu-compositing");
         }
         CefApp.addAppHandler(new CefAppHandlerAdapter(cliSwitches.toArray(new String[0])) {
@@ -90,8 +90,8 @@ public class MainFrame extends JFrame {
         });
 
         this.getContentPane().add(this.browserUI_, BorderLayout.CENTER);
-        int windowWidth = SettingsManager.getManager().getConfig().getInt("window.width");
-        int windowHeight = SettingsManager.getManager().getConfig().getInt("window.height");
+        int windowWidth = SettingsManager.getConfig().getInt("window.width");
+        int windowHeight = SettingsManager.getConfig().getInt("window.height");
         this.getContentPane().setPreferredSize(new Dimension(windowWidth, windowHeight));
         this.pack();
         this.setResizable(false);

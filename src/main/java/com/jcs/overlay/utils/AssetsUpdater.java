@@ -58,7 +58,7 @@ public class AssetsUpdater {
         LOGGER.info("Checking for a CDragon assets update...");
         String latestGamePatch = Patches.get().get(0).getName();
         LOGGER.debug("Latest game patch is {}.", latestGamePatch);
-        String localCDragonPatch = SettingsManager.getManager().getConfig().getString("debug.cdragonPatch");
+        String localCDragonPatch = SettingsManager.getConfig().getString("debug.cdragonPatch");
         if (!latestGamePatch.equals(localCDragonPatch)) {
             LOGGER.info("Local CDragon assets patch does not match latest game patch. Checking for updated assets...");
             OkHttpClient client = new OkHttpClient();
@@ -94,7 +94,7 @@ public class AssetsUpdater {
      * @return {@code true} if a new version was released, else {@code false}.
      */
     private static boolean checkForNewDDragonPatch() {
-        String localVersion = SettingsManager.getManager().getConfig().getString("debug.ddragonPatch");
+        String localVersion = SettingsManager.getConfig().getString("debug.ddragonPatch");
         String latestVersion = Versions.get().get(0);
         return !localVersion.equals(latestVersion);
     }
@@ -125,7 +125,7 @@ public class AssetsUpdater {
         if (success) {
             LOGGER.debug("Updating the DDragon patch in config...");
             String latestVersion = Versions.get().get(0);
-            SettingsManager.getManager().updateValue("debug.ddragonPatch",
+            SettingsManager.updateValue("debug.ddragonPatch",
                     ConfigValueFactory.fromAnyRef(latestVersion));
             LOGGER.info("DDragon assets update completed.");
         } else {
@@ -188,7 +188,7 @@ public class AssetsUpdater {
 
         if (cDragonSuccess) {
             LOGGER.debug("Updating the CDragon patch in config...");
-            SettingsManager.getManager().updateValue("debug.cdragonPatch",
+            SettingsManager.updateValue("debug.cdragonPatch",
                     ConfigValueFactory.fromAnyRef(latestCDragonPatch));
             LOGGER.info("CDragon assets update completed.");
         } else {
@@ -297,7 +297,7 @@ public class AssetsUpdater {
         @Override
         public void onFailure(@NotNull Call call, @NotNull IOException e) {
             cDragonSuccess = false;
-            LOGGER.error("Could not get headers for request " + call.request().toString(), e);
+            LOGGER.error("Could not get headers for request " + call.request(), e);
         }
 
         @Override

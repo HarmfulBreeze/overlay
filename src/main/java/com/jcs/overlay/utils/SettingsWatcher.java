@@ -45,7 +45,7 @@ public class SettingsWatcher implements Runnable {
                     if (event.context().toString().equals("config.conf")) {
                         if (event.kind() == ENTRY_MODIFY) {
                             LOGGER.warn("Config file has been modified!");
-                            SettingsManager.getManager().refreshConfig();
+                            SettingsManager.refreshConfig();
                         } else {
                             LOGGER.warn("Config file was deleted. Overlay configuration remains unchanged.");
                         }
