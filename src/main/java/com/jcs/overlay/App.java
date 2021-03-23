@@ -8,7 +8,6 @@ import com.jcs.overlay.websocket.WSServer;
 import com.merakianalytics.orianna.Orianna;
 import com.merakianalytics.orianna.types.core.staticdata.Champions;
 import com.merakianalytics.orianna.types.core.staticdata.SummonerSpells;
-import org.cef.CefApp;
 import org.jetbrains.annotations.Contract;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,9 +18,6 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
-import static org.cef.CefApp.CefAppState.NONE;
-import static org.cef.CefApp.CefAppState.TERMINATED;
 
 public class App {
     private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
@@ -74,8 +70,7 @@ public class App {
         WSServer.getInstance().start();
         settingsWatcherThread.start();
         if (!noGUI) {
-            //noinspection ResultOfMethodCallIgnored
-            CefManager.getInstance(); // Initialize CEF singleton
+            CefManager.getInstance().init(); // Initialize CEF singleton
         }
 
         isStarted = true;
@@ -89,18 +84,12 @@ public class App {
 
         LOGGER.info("Shutting down...");
 
-        CefApp.CefAppState cefAppState = CefApp.getState();
-        // Dispose of CefApp only if it's currently running
-        if (cefAppState != NONE && cefAppState != TERMINATED) {
-            CefApp.getInstance().dispose();
-        }
-        // Dispose of the mainframe only if it has existed
-        if (cefAppState != NONE) {
-            CefManager.getInstance().getMainFrame().dispose();
-        }
+        LOGGER.debug("Shutting down CEF...");
+        CefManager.getInstance().stop();
+        LOGGER.debug("CEF has been shut down.");
 
-        SettingsWatcher.getInstance().stop();
         LOGGER.debug("Stopping settings watcher...");
+        SettingsWatcher.getInstance().stop();
         try {
             settingsWatcherThread.join();
             LOGGER.debug("Settings watcher stopped.");
@@ -108,8 +97,8 @@ public class App {
             LOGGER.error("Error stopping settings watcher", e);
         }
 
+        LOGGER.debug("Stopping lockfile monitor...");
         LockfileMonitor.getInstance().stop();
-        LOGGER.debug("Waiting for lockfile monitor to close...");
         try {
             lockfileMonitorThread.join();
             LOGGER.debug("Lockfile monitor stopped.");
