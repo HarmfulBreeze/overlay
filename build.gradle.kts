@@ -43,10 +43,7 @@ jlink {
 }
 
 repositories {
-    flatDir {
-        dirs("libs")
-    }
-    jcenter()
+    flatDir { dirs("libs") }
     mavenCentral()
     maven { url = uri("https://oss.sonatype.org/content/repositories/snapshots") }
     google()
