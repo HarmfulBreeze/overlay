@@ -12,7 +12,7 @@ tasks.test {
 }
 
 application {
-    mainModule.set("overlay.main")
+    mainModule.set("com.jcs.overlay.main")
     mainClass.set("com.jcs.overlay.App")
 }
 

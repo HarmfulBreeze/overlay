@@ -1,4 +1,4 @@
-module overlay.main {
+module com.jcs.overlay.main {
     requires java.base;
     requires java.desktop;
     requires java.net.http;
