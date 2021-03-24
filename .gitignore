@@ -1,6 +1,9 @@
-# Created by .ignore support plugin (hsz.mobi)
-### JetBrains template
-# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and WebStorm
+
+# Created by https://www.toptal.com/developers/gitignore/api/java,intellij,gradle,tortoisegit
+# Edit at https://www.toptal.com/developers/gitignore?templates=java,intellij,gradle,tortoisegit
+
+### Intellij ###
+# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 
 # User-specific stuff
@@ -30,6 +33,9 @@
 # When using Gradle or Maven with auto-import, you should exclude module files,
 # since they will be recreated, and may cause churn.  Uncomment if using
 # auto-import.
+.idea/artifacts
+.idea/compiler.xml
+.idea/jarRepositories.xml
 .idea/modules.xml
 .idea/*.iml
 .idea/modules
@@ -69,7 +75,37 @@ fabric.properties
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
 
-### Java template
+### Intellij Patch ###
+# Comment Reason: https://github.com/joeblau/gitignore.io/issues/186#issuecomment-215987721
+
+# *.iml
+# modules.xml
+# .idea/misc.xml
+# *.ipr
+
+# Sonarlint plugin
+# https://plugins.jetbrains.com/plugin/7973-sonarlint
+.idea/**/sonarlint/
+
+# SonarQube Plugin
+# https://plugins.jetbrains.com/plugin/7238-sonarqube-community-plugin
+.idea/**/sonarIssues.xml
+
+# Markdown Navigator plugin
+# https://plugins.jetbrains.com/plugin/7896-markdown-navigator-enhanced
+.idea/**/markdown-navigator.xml
+.idea/**/markdown-navigator-enh.xml
+.idea/**/markdown-navigator/
+
+# Cache file creation bug
+# See https://youtrack.jetbrains.com/issue/JBR-2257
+.idea/$CACHE_FILE$
+
+# CodeStream plugin
+# https://plugins.jetbrains.com/plugin/12206-codestream
+.idea/codestream.xml
+
+### Java ###
 # Compiled class file
 *.class
 
@@ -94,9 +130,13 @@ fabric.properties
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 
-### Gradle template
+### TortoiseGit ###
+# Project-level settings
+/.tgitconfig
+
+### Gradle ###
 .gradle
-/build/
+build/
 
 # Ignore Gradle GUI config
 gradle-app.setting
@@ -110,18 +150,19 @@ gradle-app.setting
 # # Work around https://youtrack.jetbrains.com/issue/IDEA-116898
 # gradle/wrapper/gradle-wrapper.properties
 
-### TortoiseGit template
-# Project-level settings
-/.tgitconfig
+### Gradle Patch ###
+**/build/
+
+# End of https://www.toptal.com/developers/gitignore/api/java,intellij,gradle,tortoisegit
 
 ### For CEF
-/libs/lib/win32
-!/libs/lib/win32.zip
-/libs/lib/win64
-!/libs/lib/win64.zip
-!/libs/*.jar
-/web/*
-!/web/web.zip
+libs/lib/win32/
+!libs/lib/win32.zip
+libs/lib/win64/
+!libs/lib/win64.zip
+!libs/*.jar
+web/**
+!web/web.zip
 
 ### Other
 apikey.txt
@@ -129,8 +170,7 @@ latestPatch.txt
 config.conf
 
 ### Logs
-/logs
+logs/
 
 ### jlink
-/buildSrc/build/
 log.txt
