@@ -12,18 +12,21 @@ import java.util.Map;
 @SuppressWarnings({"FieldCanBeLocal", "unused", "MismatchedQueryAndUpdateOfCollection"})
 public class SetupWebappMessage extends WebappMessage {
     private final TeamNames teamNames;
+    private final CoachNames coachNames;
     private final TeamColors teamColors;
     private final WebappConfig webappConfig;
     private final String messageType = "SetupWebapp";
 
     public SetupWebappMessage() {
         this.teamNames = new TeamNames();
+        this.coachNames = new CoachNames();
         this.teamColors = new TeamColors();
         this.webappConfig = new WebappConfig();
     }
 
-    public SetupWebappMessage(TeamNames teamNames, TeamColors teamColors, WebappConfig webappConfig) {
+    public SetupWebappMessage(TeamNames teamNames, CoachNames coachNames, TeamColors teamColors, WebappConfig webappConfig) {
         this.teamNames = teamNames;
+        this.coachNames = coachNames;
         this.teamColors = teamColors;
         this.webappConfig = webappConfig;
     }
@@ -46,6 +49,22 @@ public class SetupWebappMessage extends WebappMessage {
         public TeamNames(String team100, String team200) {
             this.team100 = team100;
             this.team200 = team200;
+        }
+    }
+
+    public static class CoachNames {
+        private final String coach100;
+        private final String coach200;
+
+        public CoachNames() {
+            Config config = SettingsManager.getConfig();
+            this.coach100 = config.getString("teams.blue.coach");
+            this.coach200 = config.getString("teams.red.coach");
+        }
+
+        public CoachNames(String coach100, String coach200) {
+            this.coach100 = coach100;
+            this.coach200 = coach200;
         }
     }
 
@@ -88,35 +107,59 @@ public class SetupWebappMessage extends WebappMessage {
         }
     }
 
+    public static class MusicSetup {
+        private final boolean shouldPlay;
+        private final float volume;
+
+        public MusicSetup() {
+            Config config = SettingsManager.getConfig();
+            this.shouldPlay = config.getBoolean("webapp.music.enabled");
+            this.volume = config.getNumber("webapp.music.volume").floatValue();
+        }
+
+        public MusicSetup(boolean shouldPlay, float volume) {
+            this.shouldPlay = shouldPlay;
+            this.volume = volume;
+        }
+    }
+
     public static class WebappConfig {
         private final boolean championSplashesEnabled;
-        private final String teamNamesFontSize;
         private final TimerStyle timerStyle;
         private final Map<String, Color> fontColors;
+        private final Map<String, String> fontSizes;
         private final SummonerSpellsDisplayStrategy summonerSpellsDisplayStrategy;
+        private final MusicSetup musicSetup;
 
         public WebappConfig() {
             Config config = SettingsManager.getConfig();
             this.championSplashesEnabled = config.getBoolean("webapp.championSplashesEnabled");
-            this.teamNamesFontSize = config.getString("webapp.teamNamesFontSize");
             this.timerStyle = TimerStyle.getTimerStyle(config.getString("webapp.timer.style"));
             this.fontColors = new HashMap<>();
+            this.fontSizes = new HashMap<>();
             this.summonerSpellsDisplayStrategy = SummonerSpellsDisplayStrategy.getStrategy(config.getString("webapp.summonerSpellsDisplayStrategy"));
+            this.musicSetup = new MusicSetup();
 
+            List<Integer> coachesColorList = config.getIntList("webapp.fontColors.coaches");
             List<Integer> picksColorList = config.getIntList("webapp.fontColors.picks");
             List<Integer> teamNamesColorList = config.getIntList("webapp.fontColors.teamNames");
             List<Integer> timerColorList = config.getIntList("webapp.fontColors.timer");
+            this.fontColors.put("coaches", new Color(coachesColorList));
             this.fontColors.put("picks", new Color(picksColorList));
             this.fontColors.put("teamNames", new Color(teamNamesColorList));
             this.fontColors.put("timer", new Color(timerColorList));
+
+            this.fontSizes.put("coaches", config.getString("webapp.fontSizes.coaches"));
+            this.fontSizes.put("teamNames", config.getString("webapp.fontSizes.teamNames"));
         }
 
-        public WebappConfig(boolean championSplashesEnabled, String teamNamesFontSize, TimerStyle timerStyle, Map<String, Color> fontColors, SummonerSpellsDisplayStrategy summonerSpellsDisplayStrategy) {
+        public WebappConfig(boolean championSplashesEnabled, TimerStyle timerStyle, Map<String, Color> fontColors, Map<String, String> fontSizes, SummonerSpellsDisplayStrategy summonerSpellsDisplayStrategy, MusicSetup musicSetup) {
             this.championSplashesEnabled = championSplashesEnabled;
-            this.teamNamesFontSize = teamNamesFontSize;
             this.timerStyle = timerStyle;
             this.fontColors = fontColors;
+            this.fontSizes = fontSizes;
             this.summonerSpellsDisplayStrategy = summonerSpellsDisplayStrategy;
+            this.musicSetup = musicSetup;
         }
     }
 }

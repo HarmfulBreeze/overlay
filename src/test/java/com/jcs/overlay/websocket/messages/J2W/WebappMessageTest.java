@@ -1,7 +1,7 @@
 package com.jcs.overlay.websocket.messages.J2W;
 
 import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
-import com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.TeamNames;
+import com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.*;
 import com.jcs.overlay.websocket.messages.J2W.enums.SummonerSpellsDisplayStrategy;
 import com.jcs.overlay.websocket.messages.J2W.enums.TimerStyle;
 import com.squareup.moshi.Moshi;
@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
@@ -21,18 +22,24 @@ class WebappMessageTest {
     @Test
     void setupWebappMessageTest() {
         System.out.println("Starting champSelectCreateMessageTest...");
-        TeamNames names = new TeamNames("Blue team", "Red team");
-        SetupWebappMessage.Color c1 = new SetupWebappMessage.Color(0, 0, 0);
-        SetupWebappMessage.Color c2 = new SetupWebappMessage.Color(255, 255, 255);
-        SetupWebappMessage.TeamColors colors = new SetupWebappMessage.TeamColors(c1, c2);
-        TimerStyle ts = TimerStyle.MOVING;
-        Map<String, SetupWebappMessage.Color> fc = new HashMap<>();
-        fc.put("picks", new SetupWebappMessage.Color(2, 2, 2));
-        fc.put("teamNames", new SetupWebappMessage.Color(3, 3, 3));
-        fc.put("timer", new SetupWebappMessage.Color(4, 4, 4));
+        TeamNames teamNames = new TeamNames("Blue team", "Red team");
+        CoachNames coachNames = new CoachNames("Blue team coach", "Red team coach");
+        Color c1 = new Color(0, 0, 0);
+        Color c2 = new Color(255, 255, 255);
+        TeamColors colors = new TeamColors(c1, c2);
+        TimerStyle timerStyle = TimerStyle.MOVING;
+        Map<String, Color> fontColors = new HashMap<>();
+        fontColors.put("coaches", new Color(1, 1, 1));
+        fontColors.put("picks", new Color(2, 2, 2));
+        fontColors.put("teamNames", new Color(3, 3, 3));
+        fontColors.put("timer", new Color(4, 4, 4));
+        Map<String, String> fontSizes = new HashMap<>();
+        fontSizes.put("coaches", "2vh");
+        fontSizes.put("teamNames", "3vh");
         SummonerSpellsDisplayStrategy summonerSpellsDisplayStrategy = SummonerSpellsDisplayStrategy.values()[0];
-        SetupWebappMessage.WebappConfig config = new SetupWebappMessage.WebappConfig(true, "12", ts, fc, summonerSpellsDisplayStrategy);
-        SetupWebappMessage msg = new SetupWebappMessage(names, colors, config);
+        MusicSetup musicSetup = new MusicSetup(true, 0.5f);
+        WebappConfig config = new WebappConfig(true, timerStyle, fontColors, fontSizes, summonerSpellsDisplayStrategy, musicSetup);
+        SetupWebappMessage msg = new SetupWebappMessage(teamNames, coachNames, colors, config);
 
         String expected = "{\"messageType\":\"SetupWebapp\",\"teamColors\":{\"team100Color\":{\"blue\":0,\"green\":0,\"red\":0},\"team200Color\":{\"blue\":255,\"green\":255,\"red\":255}},\"teamNames\":{\"team100\":\"Blue team\",\"team200\":\"Red team\"},\"webappConfig\":{\"championSplashesEnabled\":true,\"fontColors\":{\"timer\":{\"blue\":4,\"green\":4,\"red\":4},\"teamNames\":{\"blue\":3,\"green\":3,\"red\":3},\"picks\":{\"blue\":2,\"green\":2,\"red\":2}},\"summonerSpellsDisplayStrategy\":\"" + summonerSpellsDisplayStrategy + "\",\"teamNamesFontSize\":\"12\",\"timerStyle\":\"moving\"}}";
 
