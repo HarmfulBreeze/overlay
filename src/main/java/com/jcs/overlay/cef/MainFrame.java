@@ -31,6 +31,7 @@ public class MainFrame extends JFrame {
 
     public MainFrame(String startURL, boolean useOSR, boolean isTransparent) {
         List<String> cliSwitches = new ArrayList<>();
+        cliSwitches.add("--autoplay-policy=no-user-gesture-required");
         if (SettingsManager.getConfig().getBoolean("cef.disableGpuCompositing")) {
             cliSwitches.add("--disable-gpu-compositing");
         }
