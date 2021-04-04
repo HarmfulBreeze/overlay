@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,7 +26,10 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AssetsUpdater {
     private static final Logger LOGGER = LoggerFactory.getLogger(AssetsUpdater.class);
@@ -32,6 +37,13 @@ public class AssetsUpdater {
     private static final DateTimeFormatter RFC1123_FORMATTER = DateTimeFormatter
             .ofPattern("EEE, dd MMM yyyy HH:mm:ss z", Locale.ENGLISH)
             .withZone(ZoneId.of("GMT"));
+    private static final String[] CHAMPION_KEYS_TO_MIRROR = {
+            "Aatrox", "Aphelios", "AurelionSol", "Bard", "Blitzcrank", "Brand", "Camille", "Corki", "DrMundo",
+            "Evelynn", "Fiddlesticks", "Galio", "Garen", "Illaoi", "Ivern", "Jax", "Kayle", "Kennen", "Khazix",
+            "Kindred", "Kled", "Leblanc", "Lillia", "Lucian", "Malzahar", "Mordekaiser", "Morgana", "Nidalee",
+            "Pantheon", "Poppy", "Rakan", "Rell", "Ryze", "Sejuani", "Seraphine", "Shyvana", "Singed", "Sylas",
+            "Taliyah", "Twitch", "Varus", "Veigar", "Xayah"
+    };
     private static boolean cDragonSuccess = true;
 
     private AssetsUpdater() {
@@ -251,7 +263,28 @@ public class AssetsUpdater {
         Files.createDirectories(path.getParent());
         OutputStream os = Files.newOutputStream(path);
         BufferedImage img = ImageIO.read(is);
+        if (path.toString().contains("splash") || path.toString().contains("tile")) {
+            Pattern pattern = Pattern.compile("(.*)\\..*");
+            Matcher matcher = pattern.matcher(path.getFileName().toString());
+            if (matcher.find()) {
+                String championKey = matcher.group(1);
+                img = getMirroredImage(img, championKey);
+            }
+        }
         ImageIO.write(img, "png", os);
+    }
+
+    private static BufferedImage getMirroredImage(BufferedImage img, String championKey) {
+        if (Arrays.asList(CHAMPION_KEYS_TO_MIRROR).contains(championKey)) {
+            BufferedImage newImg = new BufferedImage(img.getWidth(), img.getHeight(), img.getType());
+            Graphics2D g2d = newImg.createGraphics();
+            g2d.transform(AffineTransform.getScaleInstance(-1, 1));
+            g2d.transform(AffineTransform.getTranslateInstance(-img.getWidth(), 0));
+            g2d.drawImage(img, 0, 0, null);
+            g2d.dispose();
+            img = newImg;
+        }
+        return img;
     }
 
     /**
