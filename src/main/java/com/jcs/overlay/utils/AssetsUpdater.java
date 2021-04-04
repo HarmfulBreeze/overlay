@@ -39,10 +39,10 @@ public class AssetsUpdater {
             .withZone(ZoneId.of("GMT"));
     private static final String[] CHAMPION_KEYS_TO_MIRROR = {
             "Aatrox", "Aphelios", "AurelionSol", "Bard", "Blitzcrank", "Brand", "Camille", "Corki", "DrMundo",
-            "Evelynn", "Fiddlesticks", "Galio", "Garen", "Illaoi", "Ivern", "Jax", "Kayle", "Kennen", "Khazix",
-            "Kindred", "Kled", "Leblanc", "Lillia", "Lucian", "Malzahar", "Mordekaiser", "Morgana", "Nidalee",
-            "Pantheon", "Poppy", "Rakan", "Rell", "Ryze", "Sejuani", "Seraphine", "Shyvana", "Singed", "Sylas",
-            "Taliyah", "Twitch", "Varus", "Veigar", "Xayah"
+            "Evelynn", "Fiddlesticks", "Galio", "Illaoi", "Ivern", "Jax", "Kayle", "Kennen", "Khazix", "Kindred",
+            "Kled", "Leblanc", "Lillia", "Lucian", "Malzahar", "Mordekaiser", "Pantheon", "Poppy", "Rakan", "Rell",
+            "Ryze", "Sejuani", "Shyvana", "Singed", "Sylas", "Taliyah", "Taric", "Tryndamere", "Twitch", "Varus",
+            "Veigar", "Xayah"
     };
     private static boolean cDragonSuccess = true;
 
