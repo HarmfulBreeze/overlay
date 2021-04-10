@@ -34,7 +34,14 @@ jlink {
     forceMerge("slf4j-api")
     mergedModule {
         additive = true
-        requires("jdk.crypto.ec") // Fixes random SSLHandshakeException...
+        // Fixes random SSLHandshakeException...
+        requires("jdk.crypto.ec")
+        // Fixes Orianna caching
+        uses("org.cache2k.spi.Cache2kCoreProvider")
+        uses("org.cache2k.spi.Cache2kExtensionProvider")
+        uses("org.cache2k.core.spi.CacheConfigurationProvider")
+        uses("org.cache2k.core.spi.CacheLifeCycleListener")
+        uses("org.cache2k.core.spi.CacheManagerLifeCycleListener")
     }
     launcher {
         name = "run"

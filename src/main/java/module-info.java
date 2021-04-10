@@ -13,6 +13,7 @@ module com.jcs.overlay.main {
     requires okhttp3;
     requires org.joda.time;
     requires com.fasterxml.jackson.databind;
+    requires org.cache2k.api;
     // Moshi
     requires moshi;
     requires com.squareup.moshi.adapters;
