@@ -11,6 +11,9 @@ public class Session {
     List<Integer> benchChampionIds;
     boolean benchEnabled;
     long counter; // unk
+    boolean hasSimultaneousBans;
+    boolean hasSimultaneousPicks;
+    boolean isCustomGame;
     boolean isSpectating;
     long localPlayerCellId;
     int lockedEventIndex; // unk

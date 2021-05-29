@@ -54,6 +54,9 @@ public class Action {
         @Json(name = "vote") VOTE,
         @Json(name = "ban") BAN,
         @Json(name = "ten_bans_reveal") TEN_BANS_REVEAL,
+        @Json(name = "phase_transition") PHASE_TRANSITION,
+        @Json(name = "vote_transition") VOTE_TRANSITION,
+        @Json(name = "team_vote_reveal") VOTE_REVEAL,
         UNKNOWN
     }
 }
