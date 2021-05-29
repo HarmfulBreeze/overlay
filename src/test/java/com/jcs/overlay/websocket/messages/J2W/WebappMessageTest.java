@@ -1,7 +1,6 @@
 package com.jcs.overlay.websocket.messages.J2W;
 
 import com.jcs.overlay.websocket.messages.C2J.champselect.Timer;
-import com.jcs.overlay.websocket.messages.J2W.SetupWebappMessage.*;
 import com.jcs.overlay.websocket.messages.J2W.enums.SummonerSpellsDisplayStrategy;
 import com.jcs.overlay.websocket.messages.J2W.enums.TimerStyle;
 import com.squareup.moshi.Moshi;
@@ -41,7 +40,7 @@ class WebappMessageTest {
         WebappConfig config = new WebappConfig(true, timerStyle, fontColors, fontSizes, summonerSpellsDisplayStrategy, musicSetup);
         SetupWebappMessage msg = new SetupWebappMessage(teamNames, coachNames, colors, config);
 
-        String expected = "{\"messageType\":\"SetupWebapp\",\"teamColors\":{\"team100Color\":{\"blue\":0,\"green\":0,\"red\":0},\"team200Color\":{\"blue\":255,\"green\":255,\"red\":255}},\"teamNames\":{\"team100\":\"Blue team\",\"team200\":\"Red team\"},\"webappConfig\":{\"championSplashesEnabled\":true,\"fontColors\":{\"timer\":{\"blue\":4,\"green\":4,\"red\":4},\"teamNames\":{\"blue\":3,\"green\":3,\"red\":3},\"picks\":{\"blue\":2,\"green\":2,\"red\":2}},\"summonerSpellsDisplayStrategy\":\"" + summonerSpellsDisplayStrategy + "\",\"teamNamesFontSize\":\"12\",\"timerStyle\":\"moving\"}}";
+        String expected = "{\"coachNames\":{\"coach100\":\"Blue team coach\",\"coach200\":\"Red team coach\"},\"messageType\":\"SetupWebapp\",\"teamColors\":{\"team100Color\":{\"blue\":0,\"green\":0,\"red\":0},\"team200Color\":{\"blue\":255,\"green\":255,\"red\":255}},\"teamNames\":{\"team100\":\"Blue team\",\"team200\":\"Red team\"},\"webappConfig\":{\"championSplashesEnabled\":true,\"fontColors\":{\"coaches\":{\"blue\":1,\"green\":1,\"red\":1},\"timer\":{\"blue\":4,\"green\":4,\"red\":4},\"teamNames\":{\"blue\":3,\"green\":3,\"red\":3},\"picks\":{\"blue\":2,\"green\":2,\"red\":2}},\"fontSizes\":{\"coaches\":\"2vh\",\"teamNames\":\"3vh\"},\"musicSetup\":{\"shouldPlay\":true,\"volume\":0.5},\"summonerSpellsDisplayStrategy\":\"" + summonerSpellsDisplayStrategy + "\",\"timerStyle\":\"moving\"}}";
 
         System.out.println("Testing MessageType status...");
         assertNotEquals("OverrideThis", msg.getMessageType(), "MessageType is not set!");
