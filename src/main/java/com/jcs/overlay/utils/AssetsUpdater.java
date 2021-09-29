@@ -68,28 +68,49 @@ public class AssetsUpdater {
      */
     public static void updateCDragonAssets() {
         LOGGER.info("Checking for a CDragon assets update...");
-        String latestGamePatch = Patches.get().get(0).getName();
-        LOGGER.debug("Latest game patch is {}.", latestGamePatch);
+        String latestGamePatch;
+        boolean shouldCheckForUpdatedAssets = false;
+
+        /*
+         Versions#get returns a version in format "major.minor.revision" and we only want to keep major.minor
+         Therefore we have to use a bit of regex
+        */
+        Matcher matcher = Pattern.compile("\\d{1,2}\\.\\d{1,2}").matcher(Versions.get().get(0));
+        if (matcher.find()) {
+            latestGamePatch = matcher.group();
+            LOGGER.debug("Latest game patch is {}.", latestGamePatch);
+        } else {
+            latestGamePatch = null;
+            LOGGER.warn("Could not retrieve latest game patch, Overlay will check for updated CDragon assets anyway.");
+            shouldCheckForUpdatedAssets = true;
+        }
+
         String localCDragonPatch = SettingsManager.getConfig().getString("debug.cdragonPatch");
-        if (!latestGamePatch.equals(localCDragonPatch)) {
+        if (latestGamePatch != null && !latestGamePatch.equals(localCDragonPatch)) {
             LOGGER.info("Local CDragon assets patch does not match latest game patch. Checking for updated assets...");
+            shouldCheckForUpdatedAssets = true;
+        }
+
+        if (shouldCheckForUpdatedAssets) {
             OkHttpClient client = new OkHttpClient();
             String latestCDragonVersion;
             try {
                 LOGGER.debug("Retrieving latest CDragon version...");
                 latestCDragonVersion = getLatestCDragonVersion(client);
                 LOGGER.debug("Latest CDragon version is {}.", latestCDragonVersion);
-            } catch (IOException | IndexOutOfBoundsException e) {
+            } catch (Exception e) {
                 LOGGER.error("Could not retrieve the latest CDragon version.", e);
                 return;
             }
 
-            if (latestGamePatch.equals(latestCDragonVersion)) {
+            if (!latestCDragonVersion.equals(localCDragonPatch)) {
                 LOGGER.info("Updated assets are available! Updating.");
-                performCDragonUpdate(client, latestCDragonVersion, localCDragonPatch);
+                performCDragonUpdate(client, latestGamePatch, latestCDragonVersion, localCDragonPatch);
+            } else if (latestGamePatch != null) {
+                LOGGER.warn("Updated assets of the latest patch are not available yet. " +
+                        "Overlay will check again on next startup.");
             } else {
-                LOGGER.warn("Updated assets for patch {} are not available yet. " +
-                        "Overlay will check again on next startup.", latestGamePatch);
+                LOGGER.warn("CDragon assets are up-to-date, but may not match latest game version.");
             }
 
             // Shutdown our OkHttp client
@@ -145,7 +166,7 @@ public class AssetsUpdater {
         }
     }
 
-    private static void performCDragonUpdate(OkHttpClient client, String latestCDragonPatch, String localCDragonPatch) {
+    private static void performCDragonUpdate(OkHttpClient client, String latestGamePatch, String latestCDragonPatch, String localCDragonPatch) {
         Champions allChampions = Champions.get();
         Patch gamePatch = Patch.named(localCDragonPatch).get();
         ZonedDateTime localPatchReleaseTime;
@@ -156,7 +177,7 @@ public class AssetsUpdater {
             ZoneId zoneId = ZoneId.of(jodaUTCStartTime.getZone().getID(), ZoneId.SHORT_IDS);
             localPatchReleaseTime = ZonedDateTime.ofInstant(instant, zoneId);
         } else {
-            localPatchReleaseTime = null; // localCDragonPatch is not a valid patch
+            localPatchReleaseTime = null; // localCDragonPatch is not a valid patch or Meraki CDN is out of date
         }
 
         // Download the generic champion icon and write it to a PNG file
@@ -202,7 +223,11 @@ public class AssetsUpdater {
             LOGGER.debug("Updating the CDragon patch in config...");
             SettingsManager.updateValue("debug.cdragonPatch",
                     ConfigValueFactory.fromAnyRef(latestCDragonPatch));
-            LOGGER.info("CDragon assets update completed.");
+            if (latestGamePatch != null) {
+                LOGGER.info("CDragon assets update completed.");
+            } else {
+                LOGGER.warn("CDragon assets have been updated, but may not match latest game version.");
+            }
         } else {
             LOGGER.info("CDragon assets update did not fully succeed. We will retry updating on the next startup.");
         }
@@ -295,20 +320,29 @@ public class AssetsUpdater {
      * @throws IOException               if the request could not be executed due to cancellation, a connectivity problem or timeout,
      *                                   or if the HTTP response code was unexpected.
      * @throws IndexOutOfBoundsException if all patches were tried and none were valid as a CDragon patch.
+     * @throws IllegalStateException     if it wasn't possible to extract patch from game version
      */
     @NotNull
-    private static String getLatestCDragonVersion(OkHttpClient client) throws IOException, IndexOutOfBoundsException {
-        int patchIndex = 0;
+    private static String getLatestCDragonVersion(OkHttpClient client) throws IOException,
+                                                                              IndexOutOfBoundsException,
+                                                                              IllegalStateException {
+        int versionIndex = 0;
         String gamePatch;
         do {
-            gamePatch = Patches.get().get(patchIndex).getName();
+            // Only keep major.minor in major.minor.revision
+            Matcher matcher = Pattern.compile("\\d{1,2}\\.\\d{1,2}").matcher(Versions.get().get(versionIndex));
+            if (matcher.find()) {
+                gamePatch = matcher.group();
+            } else {
+                throw new IllegalStateException("Could not extract patch from game version");
+            }
             String url = "https://raw.communitydragon.org/" + gamePatch + "/";
             Request request = new Request.Builder().url(url).build();
             try (Response response = client.newCall(request).execute()) {
                 if (response.code() == 200) {
                     return gamePatch;
                 } else if (response.code() == 404) {
-                    ++patchIndex;
+                    ++versionIndex;
                 } else {
                     throw new IOException("Unexpected response code: " + response.code());
                 }
