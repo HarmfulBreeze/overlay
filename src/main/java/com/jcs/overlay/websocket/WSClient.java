@@ -223,7 +223,7 @@ public class WSClient extends WebSocketClient {
      * @return {@code true} if myTeam is blue team, else false.
      */
     private static boolean isMyTeamBlueTeam(@NotNull List<Player> myTeam) {
-        return myTeam.get(0).getTeam() == 1;
+        return !myTeam.isEmpty() && myTeam.get(0).getTeam() == 1;
     }
 
     private void handleChampSelectCreate() {
