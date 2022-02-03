@@ -86,7 +86,7 @@ public class WSClient extends WebSocketClient {
      */
     @Nullable
     private static String getDataFromWampMessage(@NotNull String message) {
-        Pattern pattern = Pattern.compile("(?:\",(.*)])");
+        Pattern pattern = Pattern.compile("\",(.*)]");
         Matcher matcher = pattern.matcher(message);
         if (!matcher.find()) { // If the message has no json object, return null.
             return null;
@@ -103,7 +103,7 @@ public class WSClient extends WebSocketClient {
      */
     @Nullable
     private static String getChatSessionStateFromJson(@NotNull String json) {
-        Pattern pattern = Pattern.compile("(?:\"sessionState\":\"(.*)\"})");
+        Pattern pattern = Pattern.compile("\"sessionState\":\"(.*)\"}");
         Matcher matcher = pattern.matcher(json);
         if (!matcher.find()) {
             return null;
@@ -201,15 +201,9 @@ public class WSClient extends WebSocketClient {
             }
 
             switch (jsonMessage.getEventType()) {
-                case CREATE:
-                    this.handleChampSelectCreate();
-                    break;
-                case UPDATE:
-                    this.preHandleChampSelectUpdate(jsonMessage);
-                    break;
-                case DELETE:
-                    this.handleChampSelectDelete();
-                    break;
+                case CREATE -> this.handleChampSelectCreate();
+                case UPDATE -> this.preHandleChampSelectUpdate(jsonMessage);
+                case DELETE -> this.handleChampSelectDelete();
             }
         } else {
             System.out.println(json); // print JSON to console for debug purposes
@@ -279,7 +273,7 @@ public class WSClient extends WebSocketClient {
             }
         });
 
-        // Finally we communicate the summoner names to the webapp...
+        // Finally, we communicate the summoner names to the webapp...
         Map<Integer, String> playerMap = new HashMap<>();
         for (Player player : this.playerList) {
             String summonerName = player.getSummonerName();
@@ -335,7 +329,7 @@ public class WSClient extends WebSocketClient {
 
     private void handleChatSessionMessage(String message) {
         String json = WSClient.getDataFromWampMessage(message);
-        // If there is no JSON data or we get a CALLERROR
+        // If there is no JSON data, or we get a CALLERROR
         if (json == null || message.startsWith("[4")) {
             // Chat plugin isn't loaded, most likely
             try {
@@ -373,25 +367,23 @@ public class WSClient extends WebSocketClient {
 
         // Handle every type of action
         switch (action.getType()) {
-            case VOTE: {
+            case VOTE -> {
                 // Stub
                 if (!action.isCompleted()) {
                     debug.append("Received a vote message.");
                 } else {
                     debug.append("Action of type vote completed.");
                 }
-                break;
             }
-            case TEN_BANS_REVEAL: {
+            case TEN_BANS_REVEAL -> {
                 // Stub
                 if (!action.isCompleted()) {
                     debug.append("Ten bans reveal started.");
                 } else {
                     debug.append("Ten bans reveal completed.");
                 }
-                break;
             }
-            case BAN: {
+            case BAN -> {
                 // TODO: remove duplicate code
                 // Handle player not found
                 Player player = this.getPlayerByCellId(action.getActorCellId());
@@ -445,9 +437,8 @@ public class WSClient extends WebSocketClient {
                     SetBanPickMessage msg = new SetBanPickMessage(player.getAdjustedCellId(), false, false);
                     this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, msg);
                 }
-                break;
             }
-            case PICK: {
+            case PICK -> {
                 // TODO: remove duplicate code
                 // Handle player not found
                 Player player = this.getPlayerByCellId(action.getActorCellId());
@@ -494,16 +485,15 @@ public class WSClient extends WebSocketClient {
                     SetBanPickMessage message = new SetBanPickMessage(player.getAdjustedCellId(), false, false);
                     this.wsServer.broadcastWebappMessage(SetBanPickMessage.class, message);
                 }
-                break;
             }
-            case UNKNOWN: {
+            case UNKNOWN -> {
                 if (!action.isCompleted()) {
                     debug.append("Received unknown action type!!");
                 } else {
                     debug.append("Action of unknown type completed.");
                 }
-                break;
             }
+
             // No need for a default case, it's already handled by ActionType.UNKNOWN
         }
 
