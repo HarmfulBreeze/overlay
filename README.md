@@ -1,3 +1,5 @@
+*This repository has been archived due to a lack of time and a lack of maintenance of the main dependency of this project.*
+
 # Overlay
 ###### An easy-to-use, yet very customizable application to display champion select information in streams
 ![Gradle CI](https://github.com/piorrro33/overlay/workflows/Gradle%20CI/badge.svg?branch=master "Gradle CI")
